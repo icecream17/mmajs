@@ -132,8 +132,11 @@ and the following methods:
 > (with the exception of {CompressedProofNumber})
 > and the rest of the whitespace is eaten.
 >
-> For convenience, a token will end if AND only if there is whitespace
+> For convenience in coding, a token will end if AND only if there is whitespace
 > or the {EOF}
+>
+> A {Comment} is also consumed and can be ignored. A {Comment} is like
+> whitespace, except it doesn't end a token.
 >
 > If a token does not match any option, raise <span style="color:#AB5753;">**Error 0: Unexpected token**</span>
 
@@ -146,21 +149,8 @@ and the following methods:
 
 > **Note**:
 >
-> {{Comment}} is moved inside {{Statement}}
-
-> **Note**:
->
 > {`EOF`} is a custom token inserted at the end of file inclusions,
 > to guarantee that no file ends with a partially defined item.
-
-### {{Comment}}
-
-- `$(` 'Character'<sup>*</sup> `$)`
-
-#### Behavior
-
-- `$(` 'Character'<sup>*</sup> `$)`
-    1. If 'Character'<sup>*</sup> contains a `$(`, raise <span style="color:#AB5753;">**Error 1: Nested comments are not supported**</span>.
 
 ### {{FileInclusion}}
 
@@ -179,7 +169,6 @@ and the following methods:
 
 ### {{Statement}}
 
-- {{Comment}}
 - {{Scope}}
 - {{VariableDeclaration}}
 - {{DVCondition}}
@@ -424,6 +413,15 @@ These aren't even options, but these errors may exist for increased user-friendl
             1. If _A_ X. _B_ is not a subset of the :parentNode:mandatoryDVPairs, raise <span style="color:#AB5753;">**Error 22: Disjoint variable condition not satisfied (Hint: add $d ...)**</span>
 
 ## Tokens and characters
+
+### {Comment}
+
+- `$(` 'Character'<sup>*</sup> `$)`
+
+#### Behavior
+
+- `$(` 'Character'<sup>*</sup> `$)`
+    1. If 'Character'<sup>*</sup> contains a `$(`, raise <span style="color:#AB5753;">**Error 1: Nested comments are not supported**</span>.
 
 ### 'Character'
 
