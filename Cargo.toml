@@ -2,5 +2,7 @@
 name = "mmajs"
 version = "0.1.0"
 edition = "2021"
+default-run = "mmajs"
 
 [dependencies]
+clap = { version = "4.5.16", features = ["derive"] }
