@@ -1,37 +1,52 @@
 # Specification of the Metamath Language
 
-<https://us.metamath.org/downloads/metamath.pdf> with similar notation to
-<https://doc.rust-lang.org/reference/notation.html> and ECMA262
+This is <https://us.metamath.org/downloads/metamath.pdf> in a more codable form.
 
-Syntactical productions are surrounded by double braces; tokens by single braces;
-characters by single quotes, literals are in `monospace`.
+## Notation
 
-Productions or tokens can have associated _Behavior_ which is done upon completed parsing of the production or token.
+> With inspiration from many sources; mostly <https://doc.rust-lang.org/reference/notation.html> and ECMA262; but also Python and C
 
-Context can be added by appending `{+ContextFlag}` to the end, and denied using
-`{!ContextFlag}`
+* {{Syntactical production}}
+* {Token}
+* 'Character'
+* `literal`
+* g{globalVariable}
+* :attributeOrMethod
+* _localVariable_
+* <span style="color:#AB5753;">**Error 73: Example**</span>
 
-"Global variables" are noted using `g{VariableName}`, properties/attributes/fields/components/methods are prefixed with ":".
+Productions or tokens can have associated _Behavior_ which is done upon completed parsing of the production or token, unless otherwise specified.
 
-Error messages are just suggestions.
+Errors are just suggestions; they can work however you want as long as you prepare grace and helpful output.
 
 ## Initialization
 
-1. Let g{FilesIncluded} be a list of file names.
+The following "global variables" are declared:
+
+| type                       | name                       |
+|----------------------------|----------------------------|
+| List\<String>              | g{FilesIncluded} |
+| List\<{{Scope}}>           | g{Scopes}         |
+| Set\<{MathSymbol}>         | g{Constants}          |
+| Set\<{MathSymbol}>         | g{MathSymbols}          |
+| Set\<{MathSymbol}>         | g{InactiveVariables}          |
+| List\<{{FHypothesis}}>     | g{FHypotheses}   |
+| List\<({Label}, {{FHypothesis}} \| {{Assertion}})> | g{Labels}   |
+
 1. Add the top level file name to g{FilesIncluded}.
-1. Let g{Scopes} be a list of {{Scope}}.
 1. Add a new scope to g{Scopes}.
-1. Let g{Constants} be a set of {MathSymbol}.
-1. Let g{MathSymbols} be a set of {MathSymbol}.
-1. Let g{InactiveVariables} be a set of {MathSymbol}.
-1. Let g{FHypotheses} be a list of {{FHypothesis}}.
-1. Let g{Labels} be an insertion-order-preserving map whose keys are {Label}.
+
+## g:label(_label_: {Label})
+
+1. For each let (_l_, _node_) in g{Labels}:
+    1. If _l_ is _label_, return Some(_node_)
+1. Return None
 
 ## g:addLabel(_label_: {Label}, _noun_)
 
-1. If g{Labels} has the key _label_, raise <span style="color:#AB5753;">**Error -1: Duplicate label**</span>
+1. If g:label(_label_) is not None, raise <span style="color:#AB5753;">**Error -1: Duplicate label**</span>
 1. If g{MathSymbols} has _label_, raise <span style="color:#AB5753;">**Error -2: Label conflicts with math symbol**</span>
-1. Add the entry (_label_, _noun_) to g{Labels}
+1. Append the entry (_label_, _noun_) to g{Labels}
 
 ## g:checkPossVarHasF(_variable_: {MathSymbol})
 
@@ -49,7 +64,7 @@ Error messages are just suggestions.
 
 ## Scope
 
-A scope has the following components:
+A scope has the following attributes:
 
 | type                           | name                       |
 |--------------------------------|----------------------------|
@@ -147,7 +162,7 @@ and the following methods:
 - `$(` 'Character'<sup>*</sup> `$)`
     1. If 'Character'<sup>*</sup> contains a `$(`, raise <span style="color:#AB5753;">**Error 1: Nested comments are not supported**</span>.
 
-### {{FileInclusion}} {!Scoped} g{FilesIncluded}
+### {{FileInclusion}}
 
 - `$[` 'MathCharacter'<sup>+</sup> `$]`
 
@@ -346,8 +361,9 @@ These aren't even options, but these errors may exist for increased user-friendl
     1. Let _proof stack_
     1. For each let _label_ : {Label}<sup>+</sup>
         1. If _label_ is `?`, append a filler statement to the _proof stack_.
-        1. Else if g{Labels}(_label_) is a hypothesis, append it to the _proof stack_
-        1. Else, let _assertion_ be g{Labels}(_label_).
+        1. Else if g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 24: Unrecognized label**</span>
+        1. Else if g:label(_label_) is a hypothesis, append it to the _proof stack_
+        1. Else, let _assertion_ be g:label(_label_).
             1. Let _number of hypotheses_ be _assertion_:hypotheses:length
             1. Take _number of hypotheses_ elements from the _proof stack_ and assign them to _assertion_:hypotheses (reversing the order if necessary such that the first hypothesis is assigned the bottommost entry), and (uniquely) unify along all the assignments.
             1. If there are not enough elements in the stack, raise <span style="color:#AB5753;">**Error 18: Step uses more hypotheses than proven**</span>
@@ -361,9 +377,11 @@ These aren't even options, but these errors may exist for increased user-friendl
 
 - `(` {Label}<sup>*</sup> `)` {CompressedProofNumber}<sup>+</sup>
     1. Let _proof stack_
-    1. Let _reference stack_
+    1. Let _reference stack_ be a copy of :parentNode:mandatoryHypotheses
     1. For each let _label_ : {Label}<sup>+</sup>
-        1. Append _label_ to the _proof stack_
+        1. If g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 24: Unrecognized label**</span>
+        1. Let Some(_node_) be g:label(_label_)
+        1. Append _node_ to the _reference stack_
     1. **Note**: At this point, the behavior for {CompressedProofNumber} is run
     1. If there is more than one element in the _proof stack_, raise <span style="color:#AB5753;">**Error 19: More than one statement remaining at end of proof**</span>
     1. Assert: There is only one element in the _proof stack_
@@ -395,8 +413,8 @@ These aren't even options, but these errors may exist for increased user-friendl
     1. Let _base20_ be \[`A`-`T`]<sup>+</sup> parsed as base 20
     1. Let _index_ be 20 * (1 + _base5_) + _base20_
     1. If _reference stack_\[_index_] does not exist, raise <span style="color:#AB5753;">**Error 23: Proof failed: Compressed number too large and does not reference anything**</span>
-    1. If _reference stack_\[_index_] is a math statement (a subproof or hypothesis), append it to the _proof stack_
-    1. Else, let _assertion_ be g{Labels}(_label_).
+    1. If _reference stack_\[_index_] is a subproof or hypothesis, append it to the _proof stack_
+    1. Else, let _assertion_ be _reference stack_\[_index_].
         1. Let _number of hypotheses_ be _assertion_:hypotheses:length
         1. Take _number of hypotheses_ elements from the _proof stack_ and assign them to _assertion_:hypotheses (reversing the order if necessary such that the first hypothesis is assigned the bottommost entry), and (uniquely) unify along all the assignments.
         1. If there are not enough elements in the stack, raise <span style="color:#AB5753;">**Error 18: Step uses more hypotheses than proven**</span>
