@@ -167,6 +167,22 @@ and the following methods:
 
 ## Statements
 
+### Syntax summary
+
+- `${` {{Statement}}<sup>*</sup> `$}`
+- `$c` {MathSymbol}<sup>+</sup> `$.`
+- `$v` {MathSymbol}<sup>+</sup> `$.`
+- `$d` {MathSymbol}<sup>2+</sup> `$.`
+- {Label} `$f` {MathSymbol} {MathSymbol} `$.`
+- {Label} `$e` {MathSymbol} {MathSymbol}<sup>*</sup> `$.`
+- {Label} `$a` {MathSymbol} {MathSymbol}<sup>*</sup> `$.`
+- {Label} `$p` {MathSymbol} {MathSymbol}<sup>*</sup> `$=` {{ProofDetails}} `$.`
+
+where {{ProofDetails}} is
+
+- {Label}<sup>+</sup>
+- `(` {Label}<sup>*</sup> `)` {CompressedProofNumber}<sup>+</sup>
+
 ### {{Statement}}
 
 - {{Scope}}

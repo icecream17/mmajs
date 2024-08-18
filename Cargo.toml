@@ -5,4 +5,8 @@ edition = "2021"
 default-run = "mmajs"
 
 [dependencies]
+annotate-snippets = "0.11.4"
 clap = { version = "4.5.16", features = ["derive"] }
+
+[dev-dependencies]
+annotate-snippets = { version = "0.11.4", features = ["testing-colors"] }
