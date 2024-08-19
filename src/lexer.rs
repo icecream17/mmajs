@@ -6,7 +6,7 @@
 //! phrases, sentences, paragraphs, sections, pages, chapters, volumes, and arcs that make up the story
 //! that is a database.
 //!
-//! If there is a {FileInclusion} SyntaxProduction, the lexer will stop, and load the SyntaxProductions
+//! If there is a FileInclusion, the lexer will stop, and load the SyntaxProductions
 //! of that file in-place. It is currently unspecified, but for consistency, the filepath of the {FileInclusion}
 //! will be relative to the file including it.
 //!
@@ -67,15 +67,22 @@ impl From<Keyword> for &'static str {
     }
 }
 
-enum TokenType {
-    /// A token that starts with `$`
+// Naming: compare https://doc.rust-lang.org/stable/nightly-rustc/rustc_ast/token/enum.TokenKind.html
+//
+// Reasons to use "Kind" instead of "Type":
+// 1. It allows me to use "kind" as a field. "type" is a keyword in Rust
+enum TokenKind {
+    /// Starts with `$`
     Keyword(Keyword),
 
-    /// A token that appears in proofs, and before `$f`, `$e`, `$a`, and `$p`
+    /// Appears in proofs and before `$f`, `$e`, `$a`, and `$p`
     Label(String),
 
-    /// A token that appears in expressions
+    /// Appears in expressions
     MathSymbol(String),
+
+    /// Appears in comments
+    CommentedLiteral(String),
 
     /// `(` -- the start of the label list in a compressed proof
     CompressedProofStart,
@@ -83,29 +90,52 @@ enum TokenType {
     /// `)` -- the end of the label list in a compressed proof
     CompressedProofEnd,
 
-    /// Unprocessed compressed proof data
+    /// Unprocessed capital letter data in a compressed proof
     CompressedProofPart(String),
 
     /// Custom token inserted after an included file for verification purposes
     Eof,
 }
 
-impl From<TokenType> for &'static str {
-    fn from(value: TokenType) -> Self {
+impl From<TokenKind> for &'static str {
+    fn from(value: TokenKind) -> Self {
         match value {
-            TokenType::Keyword(keyword) => keyword.into(),
-            TokenType::Label(_) => todo!(),
-            TokenType::MathSymbol(_) => todo!(),
-            TokenType::CompressedProofStart => "(",
-            TokenType::CompressedProofEnd => ")",
-            TokenType::CompressedProofPart(_) => todo!(),
-            TokenType::Eof => "",
+            TokenKind::Keyword(keyword) => keyword.into(),
+            TokenKind::Label(_) => todo!(),
+            TokenKind::MathSymbol(_) => todo!(),
+            TokenKind::CommentedLiteral(_) => todo!(),
+            TokenKind::CompressedProofStart => "(",
+            TokenKind::CompressedProofEnd => ")",
+            TokenKind::CompressedProofPart(_) => todo!(),
+            TokenKind::Eof => "",
         }
     }
 }
 
+// NOTE: Lines and Columns are 1-indexed!
+// Columns are zero indexed in annotate_snippets (.span)
+// Each token holds its line, and start and end column
+// Each production holds its tokens, and raw text, and file
+
+/// Semantic type for positions in files. (metamath-rs)
+pub type FilePos = usize;
+
+/// Semantic type for file-position ranges. (metamath-rs)
+pub type Span = std::ops::Range<usize>;
+
+struct Token {
+    kind: TokenKind,
+
+    /// The columns (in the line) where the token lives
+    location: Span,
+}
+
+struct SyntaxProduction {
+    tokens: Vec<Token>,
+}
+
 /// A speciic location in a file
-struct Location<'a> {
+struct LexerLocation<'a> {
     /// Relative path to the file
     file: &'a PathBuf,
 
@@ -116,20 +146,15 @@ struct Location<'a> {
     zi_column: usize,
 }
 
-impl<'a> Location<'a> {
+impl<'a> LexerLocation<'a> {
     fn new(file: &'a PathBuf, zi_line: usize, zi_column: usize) -> Self {
-        Location {
+        LexerLocation {
             file,
             zi_line,
             zi_column,
         }
     }
 }
-
-// NOTE: Lines and Columns are 1-indexed!
-// Columns are zero indexed in annotate_snippets (.span)
-// Each line holds tokens
-// Each token holds its start and end column
 
 struct File<'a> {
     path: &'a PathBuf,
@@ -154,7 +179,7 @@ struct Lexer<'a> {
     files_included: Vec<File<'a>>,
 
     /// Location of the next ASCII character to be read, for each file remaining
-    progress: Vec<Location<'a>>,
+    progress: Vec<LexerLocation<'a>>,
 }
 
 impl<'a> Lexer<'a> {
@@ -163,7 +188,7 @@ impl<'a> Lexer<'a> {
         match File::try_new(path) {
             Ok(file) => Ok(Lexer {
                 files_included: vec![file],
-                progress: vec![Location::new(path, 0, 0)],
+                progress: vec![LexerLocation::new(path, 0, 0)],
             }),
             Err(e) => Err(e)
         }

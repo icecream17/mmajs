@@ -434,6 +434,11 @@ These aren't even options, but these errors may exist for increased user-friendl
 
 - `$(` 'Character'<sup>*</sup> `$)`
 
+> **Note**:
+>
+> In mmaj, tokens are whitespace separated strings, so a {Comment} becomes a production: {{Comment}}
+> whose tokens are {{CommentedLiteral}}'s.
+
 #### Behavior
 
 - `$(` 'Character'<sup>*</sup> `$)`
