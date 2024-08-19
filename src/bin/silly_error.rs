@@ -51,5 +51,5 @@ fn main() {
     } else {
         Level::Info.title("No \"tabs\" found, congrats!")
     };
-    anstream::println!("{}", renderer.render(message));
+    anstream::eprintln!("{}", renderer.render(message));
 }

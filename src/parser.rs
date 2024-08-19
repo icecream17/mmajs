@@ -1,6 +1,7 @@
-//! Processes a file into SyntaxProductions
+//! Parses Metamath databases.
 //!
-//! The parser uses the lexer to turn raw file ASCII into SyntaxProductions.
+//! The parser starts with an input file, which may have commands to include other input files.
+//! This is called a database. Each file is further parsed into scopes and statements.
 //!
 //! If Tokens are like Words, SyntaxProductions are like the various kinds of increasingly complex
 //! phrases, sentences, paragraphs, sections, pages, chapters, volumes, and arcs that make up the story
@@ -9,14 +10,26 @@
 //! If there is a FileInclusion, the lexer will stop, and load the SyntaxProductions
 //! of that file in-place. It is currently unspecified, but for consistency, the filepath of the {FileInclusion}
 //! will be relative to the file including it.
-//!
-//! Literally, the only job of this file is to process a file into SyntaxProductions.
-//!
-//! While a String may be worse than other options, count_lines.rs indicates
-//! that reading then holding 772780 lines in a single String can be done in about no time (wow)
-//! As such, there's no reason to optimize.
 
 use std::path::PathBuf;
+
+// While holding the whole String may be worse than other options, `count_lines.rs` indicates
+// that reading then holding 772780 lines in a single String can be done in about no time (wow)
+// As such, there's no reason to optimize.
+struct File<'a> {
+    path: &'a PathBuf,
+    text: String,
+}
+
+impl<'a> File<'a> {
+    fn try_new(path: &'a PathBuf) -> Result<Self, std::io::Error> {
+        // Long code: see bottom of file
+        match std::fs::read_to_string(path) {
+            Ok(text) => Ok(File { path, text }),
+            Err(e) => Err(e),
+        }
+    }
+}
 
 enum Keyword {
     /// `$(`
@@ -139,7 +152,7 @@ struct LexerLocation<'a> {
     /// Relative path to the file
     file: &'a PathBuf,
 
-    /// Zero-indexed line
+    ///
     zi_line: usize,
 
     /// Zero-indexed character
@@ -152,21 +165,6 @@ impl<'a> LexerLocation<'a> {
             file,
             zi_line,
             zi_column,
-        }
-    }
-}
-
-struct File<'a> {
-    path: &'a PathBuf,
-    text: String,
-}
-
-impl<'a> File<'a> {
-    fn try_new(path: &'a PathBuf) -> Result<Self, std::io::Error> {
-        // Long code: see bottom of file
-        match std::fs::read_to_string(path) {
-            Ok(text) => Ok(File { path, text }),
-            Err(e) => Err(e),
         }
     }
 }
@@ -189,6 +187,10 @@ impl<'a> Lexer<'a> {
             }),
             Err(e) => Err(e),
         }
+    }
+
+    fn next_char(&'a mut self) -> u8 {
+        unimplemented!();
     }
 }
 

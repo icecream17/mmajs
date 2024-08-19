@@ -1,8 +1,8 @@
 //! A metamath verifier and proof assistant, with tactics
 
 #![warn(missing_docs)]
-// #![warn(clippy::pedantic)]
+#![warn(clippy::pedantic)]
 #![allow(dead_code)]
 
-mod diag;
+pub(crate) mod diag;
 mod parser;
