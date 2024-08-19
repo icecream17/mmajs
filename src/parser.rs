@@ -165,11 +165,8 @@ impl<'a> File<'a> {
     fn try_new(path: &'a PathBuf) -> Result<Self, std::io::Error> {
         // Long code: see bottom of file
         match std::fs::read_to_string(path) {
-            Ok(text) => Ok(File {
-                path,
-                text,
-            }),
-            Err(e) => Err(e)
+            Ok(text) => Ok(File { path, text }),
+            Err(e) => Err(e),
         }
     }
 }
@@ -190,7 +187,7 @@ impl<'a> Lexer<'a> {
                 files_included: vec![file],
                 progress: vec![LexerLocation::new(path, 0, 0)],
             }),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 }

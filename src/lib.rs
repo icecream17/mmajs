@@ -1,2 +1,8 @@
+//! A metamath verifier and proof assistant, with tactics
 
-mod lexer;
+#![warn(missing_docs)]
+// #![warn(clippy::pedantic)]
+#![allow(dead_code)]
+
+mod diag;
+mod parser;
