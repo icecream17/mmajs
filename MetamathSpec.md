@@ -69,7 +69,7 @@ A scope has the following attributes:
 | type                           | name                       |
 |--------------------------------|----------------------------|
 | Set\<{MathSymbol}>             | :localVariableDeclarations |
-|                                | :localDVConditions         |
+| Set\<{{DVCondition}}           | :localDVConditions         |
 | List\<{{FHypothesis}}>         | :localFHypotheses          |
 | List\<{{EssentialHypothesis}}> | :localEssentialHypotheses  |
 
@@ -99,7 +99,11 @@ and the following methods:
 
 ### :activeDVPairs
 
-1. Return every 2-size combination of variables in :activeDVConditions
+1. Return Set(:activeDVConditions flatMap (_DVCondition_ ↦ _DVConditions_:pairs))
+
+> **Note**: `flatMap` as in JavaScript's `Array#flatMap`. It is `U. (F " A)` in Metamath notation.
+
+> **Note**: `Set` is there to avoid returning duplicate pairs.
 
 ### :activeFHypotheses
 
@@ -115,60 +119,9 @@ and the following methods:
 
 1. g{InactiveVariables} ++= :localVariableDeclarations
 
-## Top level productions
+## Syntax summary
 
-### {{Database}}
-
-- {{Item}}<sup>*</sup>
-
-> **Note**:
->
-> Upon reaching the end of a file, a custom {EOF} token is added
-
-> **Note**:
->
-> {Whitespace} plays a special role in the lexer:
-> whenever it is encountered, the current token ends,
-> (with the exception of {CompressedProofNumber})
-> and the rest of the whitespace is eaten.
->
-> For convenience in coding, a token will end if AND only if there is whitespace
-> or the {EOF}
->
-> A {Comment} is also consumed and can be ignored. A {Comment} is like
-> whitespace, except it doesn't end a token.
->
-> If a token does not match any option, raise <span style="color:#AB5753;">**Error 0: Unexpected token**</span>
-
-### {{Item}}
-
-- {{Statement}}
-- {{ConstantDeclaration}}
-- {{FileInclusion}}
-- {`EOF`}
-
-> **Note**:
->
-> {`EOF`} is a custom token inserted at the end of file inclusions,
-> to guarantee that no file ends with a partially defined item.
-
-### {{FileInclusion}}
-
-- `$[` 'MathCharacter'<sup>+</sup> `$]`
-
-#### Behavior
-
-- `$[` 'MathCharacter'<sup>+</sup> `$]`
-    1. Let {{Filename}} be 'MathCharacter'<sup>+</sup>
-    1. If there is no file at {{Filename}}, raise <span style="color:#AB5753;">**Error 2: File does not exist**</span>
-    1. If g{FilesIncluded} does not contain {{Filename}}:
-        1. Add {{Filename}} to g{FilesIncluded}
-        1. Insert the contents of the file and a custom {`EOF`} token at the current point
-
-## Statements
-
-### Syntax summary
-
+- `$[` {MathSymbol} `$]`
 - `${` {{Statement}}<sup>*</sup> `$}`
 - `$c` {MathSymbol}<sup>+</sup> `$.`
 - `$v` {MathSymbol}<sup>+</sup> `$.`
@@ -180,8 +133,73 @@ and the following methods:
 
 where {{ProofDetails}} is
 
-- {Label}<sup>+</sup>
+- ({Label} | `?`)<sup>+</sup>
 - `(` {Label}<sup>*</sup> `)` {CompressedProofNumber}<sup>+</sup>
+
+> **Note**:
+> Comments are preprocessed and deleted for the purpose of parsing.
+> That means they can appear anywhere, even "between" two tokens.
+> - `$(` 'Character'<sup>*</sup> `$)`
+
+> **Note**:
+> Even though apparently, all tokens must be surrounded by whitespace, including `$(` and `$)`,
+> I'm pretty sure no actual parser cares in the specific case that a token is at the start
+> or end of a file. So the actual rule is: **tokens are whitespace separated**.
+>
+> My code can partially ignore this rule, and allow some programs to succeed parsing where they
+> should fail. But this can never be relied on. It will also warn in the only situation where
+> the EBNF in Appendix E of metamath.pdf (ed. 2) actually shows that whitespace is required
+> 
+
+## Syntax and Behavior
+
+A file is parsed according to the {{Database}} syntax production.
+
+### {{Database}}
+
+- {{Item}}<sup>*</sup>
+
+> **Note**:
+>
+> Upon reaching the end of a file, a custom {EOF} token is added.
+> So, the end result is:
+> - {{Item}}<sup>*</sup> {EOF}
+>
+> The {EOF} token may be considered one of the variants or alternatives of {{Item}}.
+
+> **Note**:
+>
+> {Whitespace} plays a special role in the lexer:
+> whenever it is encountered, the current token ends,
+> (with the exception of {CompressedProofNumber})
+> and the rest of the whitespace is eaten.
+>
+> For convenience in coding, a token will end iff there is whitespace
+> or the {EOF}
+>
+> A {Comment} is separated from other tokens by whitespace.
+> {Comment}s are also ignored, but they won't ever end a token or anything.
+>
+> If a token does not match any option, raise <span style="color:#AB5753;">**Error 0: Unexpected token**</span>
+
+### {{Item}}
+
+- {{Statement}}
+- {{ConstantDeclaration}}
+- {{FileInclusion}}
+
+### {{FileInclusion}}
+
+- `$[` {MathSymbol} `$]`
+
+#### Behavior
+
+- `$[` {MathSymbol} `$]`
+    1. Let _filename_ be {MathSymbol}
+    1. If there is no file at _filename_, raise <span style="color:#AB5753;">**Error 2: File does not exist**</span>
+    1. If g{FilesIncluded} does not contain _filename_:
+        1. Add {{Filename}} to g{FilesIncluded}
+        1. Insert the contents of the file **without** the custom {`EOF`} token at the current point.
 
 ### {{Statement}}
 
@@ -255,6 +273,12 @@ These aren't even options, but these errors may exist for increased user-friendl
     1. For each let _variable_ : {MathSymbol}
         1. If g{Scopes}:last:activeVariables does Not contain _variable_, raise <span style="color:#AB5753;">**Error 11: Variable is not declared (in scope)**</span>
     1. Add **this** to g{Scopes}:last:DVConditions
+
+#### :pairs
+
+- `$d` {MathSymbol}<sup>2+</sup> `$.`
+    1. Assert: g{Scopes} is nonempty
+    1. Return the set of (_a_, _b_) where _a_ and _b_ are different {MathSymbol}s and _a_ < _b_ according to some arbitrary but globally consistent ordering.
 
 ### {{FHypothesis}}
 
@@ -357,14 +381,16 @@ These aren't even options, but these errors may exist for increased user-friendl
 
 ### {{ProofDetails}}
 
-- {Label}<sup>+</sup>
+- ({Label} | `?`)<sup>+</sup>
 - `(` {Label}<sup>*</sup> `)` {CompressedProofNumber}<sup>+</sup>
 
 #### Behavior
 
+In the below descriptions, a **filler statement** is an unknown statement that can be unified to anything. When unifying, assume the minimum information possible to satisfy the unification.
+
 - ({Label} | `?`)<sup>+</sup>
     1. Let _proof stack_
-    1. For each let _label_ : {Label}<sup>+</sup>
+    1. For each let _label_ : ({Label} | `?`)<sup>+</sup>
         1. If _label_ is `?`, append a filler statement to the _proof stack_.
         1. Else if g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 24: Unrecognized label**</span>
         1. Else if g:label(_label_) is a hypothesis, append it to the _proof stack_
@@ -390,7 +416,7 @@ These aren't even options, but these errors may exist for increased user-friendl
     1. **Note**: At this point, the behavior for {CompressedProofNumber} is run
     1. If there is more than one element in the _proof stack_, raise <span style="color:#AB5753;">**Error 19: More than one statement remaining at end of proof**</span>
     1. Assert: There is only one element in the _proof stack_
-    1. If _proof stack_\[0] does not match ":parentNode:typecode :parentNode:expression", raise <span style="color:#AB5753;">**Error 20: A statement different from stated was proven**</span>
+    1. If _proof stack_\[0] does not unify exactly with ":parentNode:typecode :parentNode:expression", raise <span style="color:#AB5753;">**Error 20: A statement different from stated was proven**</span>
 
 > **Note**:
 >
@@ -407,6 +433,8 @@ These aren't even options, but these errors may exist for increased user-friendl
 - \[`U`-`Y`]<sup>*</sup> {Whitespace}<sup>?</sup> \[`A`-`T`]<sup>+</sup>
 
 #### Behavior
+
+This behavior is only run within {{ProofDetails}}'s behavior.
 
 - `?`
     1. Append a filler statement to the _proof stack_.
