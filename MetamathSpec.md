@@ -148,8 +148,8 @@ where {{ProofDetails}} is
 >
 > My code can partially ignore this rule, and allow some programs to succeed parsing where they
 > should fail. But this can never be relied on. It will also warn in the only situation where
-> the EBNF in Appendix E of metamath.pdf (ed. 2) actually shows that whitespace is required
-> 
+> the EBNF in Appendix E of metamath.pdf (ed. 2) actually shows that whitespace is required:
+> after a comment.
 
 ## Syntax and Behavior
 
