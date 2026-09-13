@@ -19,6 +19,132 @@ Productions or tokens can have associated _Behavior_ which is done upon complete
 
 Errors are just suggestions; they can work however you want as long as you prepare grace and helpful output.
 
+### Error summary
+
+0. <span style="color:#AB5753;">**Error 0: Unexpected token**</span>
+1. <span style="color:#AB5753;">**Error 1: File does not exist**</span>
+2. <span style="color:#AB5753;">**Error 2: Constant declarations must be global**</span>
+3. <span style="color:#AB5753;">**Error 3: File inclusions must be global**</span>
+4. <span style="color:#AB5753;">**Error 4: File did not end in global scope**</span>
+5. .
+    1. <span style="color:#AB5753;">**Error 5: Variables may not be redeclared (in scope)**</span>
+    2. <span style="color:#AB5753;">**Error 5b: Variables may not be redeclared as constants**</span>
+    3. <span style="color:#AB5753;">**Error 5c: Variables (even when out of scope) may not be redeclared as constants**</span>
+6. .
+    1. <span style="color:#AB5753;">**Error 6: Constant symbols may not be redeclared**</span>
+    2. <span style="color:#AB5753;">**Error 6b: Constant symbols may not be redeclared as variables**</span>
+7. <span style="color:#AB5753;">**Error 7: Constants cannot be in `$d` "disjoint variable conditions"**</span>
+8. .
+    1. <span style="color:#AB5753;">**Error 8: Symbol was not declared a variable (hint: add `$v`...)**</span>
+    2. <span style="color:#AB5753;">**Error 8b: Variable is not in scope (hint: add `$v` to redeclare...)**</span>
+9. <span style="color:#AB5753;">**Error 9: Typecode is not a declared constant (hint: add `$c`...)**</span>
+10. <span style="color:#AB5753;">**Error 10: Type of variable not defined yet (hint: add `$f`...)**</span>
+11. <span style="color:#AB5753;">**Error 11: $f statement when a previous $f statement for this variable is also active**</span>
+12. <span style="color:#AB5753;">**Error 12: This $f chooses a different type for this variable than a previous $f**</span>
+13. <span style="color:#AB5753;">**Error 13: Symbol is not currently declared (hint: add `$c` or `$v`...)**</span>
+14. <span style="color:#AB5753;">**Error 14: Duplicate label**</span>
+15. <span style="color:#AB5753;">**Error 15: Label conflicts with math symbol**</span>
+16. <span style="color:#AB5753;">**Error 16: Unrecognized label**</span>
+17. <span style="color:#AB5753;">**Error 17: Step uses more hypotheses than proven**</span>
+18. <span style="color:#AB5753;">**Error 18: Cannot unify steps in proof**</span>
+19. .
+    1. <span style="color:#AB5753;">**Error 19: Disjoint variable condition violated**</span>
+    2. <span style="color:#AB5753;">**Error 19b: Disjoint variable condition not satisfied (Hint: add $d ...)**</span>
+20. <span style="color:#AB5753;">**Error 20: No subproof to recall**</span>
+21. <span style="color:#AB5753;">**Error 21: Proof failed: Compressed number too large and does not reference anything**</span>
+22. <span style="color:#AB5753;">**Error 22: More than one statement remaining at end of proof**</span>
+23. <span style="color:#AB5753;">**Error 23: A statement different from stated was proven**</span>
+
+There is a singular warning:
+- <span style="color:#AB7253;">**Warning: Nested comments are not supported**</span>
+
+## Syntax summary
+
+- `$[` {MathSymbol} `$]`
+- `${` {{Statement}}<sup>*</sup> `$}`
+- `$c` {MathSymbol}<sup>+</sup> `$.`
+- `$v` {MathSymbol}<sup>+</sup> `$.`
+- `$d` {MathSymbol}<sup>2+</sup> `$.`
+- {Label} `$f` {MathSymbol} {MathSymbol} `$.`
+- {Label} `$e` {MathSymbol} {MathSymbol}<sup>*</sup> `$.`
+- {Label} `$a` {MathSymbol} {MathSymbol}<sup>*</sup> `$.`
+- {Label} `$p` {MathSymbol} {MathSymbol}<sup>*</sup> `$=` {{ProofDetails}} `$.`
+
+where {{ProofDetails}} is
+
+- ({Label} | `?`)<sup>+</sup>
+- `(` {Label}<sup>*</sup> `)` {CompressedProofNumber}<sup>+</sup>
+
+> **Note**:
+> {Whitespace} serves the purpose of separating tokens, but is otherwise ignored,
+> (with the exception of {CompressedProofNumber}).
+
+> **Note**:
+> {{Comment}}s are preprocessed and ignored for the purpose of parsing.
+> With the exception of {{FileInclusion}}s, they can appear anywhere, even "between" two tokens.
+> - `$(` 'Character'<sup>*</sup> `$)`
+
+> **Note**:
+> Even though apparently, all tokens must be surrounded by whitespace, including `$(` and `$)`,
+> I'm pretty sure no actual parser cares in the specific case that a token is at the start
+> or end of a file. So the actual rule is: **tokens are whitespace separated**.
+>
+> The EBNF in Appendix E of metamath.pdf (ed. 2) actually shows that whitespace is required in one case:
+> after a comment. However, this is ignored.
+
+## Tokens and characters
+
+### {{Comment}}
+
+- `$(` 'Character'<sup>*</sup> `$)`
+
+#### Behavior
+
+- `$(` 'Character'<sup>*</sup> `$)`
+    1. If 'Character'<sup>*</sup> contains a `$(`, raise <span style="color:#AB7253;">**Warning: Nested comments are not supported**</span>.
+
+### 'Character'
+
+- 'WhitespaceCharacter'
+- 'MathCharacter'
+- `$`
+
+> **Note**: \[`!`-`~`] plus whitespace
+
+### {Whitespace}
+
+- 'WhitespaceCharacter'<sup>+</sup>
+
+### 'WhitespaceCharacter'
+
+- Space ` `
+- Tab `\t`
+- Carriage return `\r`
+- Line feed `\n`
+- Form feed `\f` (`\x0C` if `\f` not supported)
+
+### {Label}
+
+- {LabelCharacter}<sup>+</sup>
+
+### 'LabelCharacter'
+
+- \[`a`-`z`]
+- \[`A`-`Z`]
+- \[`0`-`9`]
+- one of `- _ .`
+
+### {MathSymbol}
+
+- 'MathCharacter'<sup>+</sup>
+
+### 'MathCharacter'
+
+- 'LabelCharacter'
+- one of ``! " # % & ' ( ) * + , / : ; < = > ? @ [ \ ] ^ ` { | } ~``
+
+> **Note**: \[`!`-`~`] but _not_ "$"
+
 ## Initialization
 
 The following "global variables" are declared:
@@ -49,8 +175,8 @@ The following "global variables" are declared:
 
 ## g:addLabel(_label_: {Label}, _noun_)
 
-1. If g:label(_label_) is not None, raise <span style="color:#AB5753;">**Error -1: Duplicate label**</span>
-1. If g{MathSymbols} has _label_, raise <span style="color:#AB5753;">**Error -2: Label conflicts with math symbol**</span>
+1. If g:label(_label_) is not None, raise <span style="color:#AB5753;">**Error 14: Duplicate label**</span>
+1. If g{MathSymbols} has _label_, raise <span style="color:#AB5753;">**Error 15: Label conflicts with math symbol**</span>
 1. Append the entry (_label_, _noun_) to g{Labels}
 
 ## g:checkPossVarHasF(_variable_: {MathSymbol})
@@ -60,14 +186,14 @@ If _variable_ is a variable (not a constant), this checks for a corresponding {{
 1. Assert: g{Scopes} is nonempty
 1. If g{Scopes}:last:activeVariables contains _variable_,
     1. If g{Scopes}:last:activeFHypotheses does Not contain an {{FHypothesis}} whose
-       :variable = _variable_, raise <span style="color:#AB5753;">**Error -3: Type of variable not defined yet (hint: add `$f`...)**</span>
+       :variable = _variable_, raise <span style="color:#AB5753;">**Error 10: Type of variable not defined yet (hint: add `$f`...)**</span>
 
 ## g:checkSymbolsAreDeclared(_typecode_: {MathSymbol}, _symbols_: {MathSymbol}<sup>*</sup>)
 
 1. If g{Constants} does Not contain :typecode, raise <span style="color:#AB5753;">**Error 9: Typecode is not a declared constant (hint: add `$c`...)**</span>
 1. For each let _symbol_ : :expression:
     1. If g{InactiveVariables} contains _symbol_, raise <span style="color:#AB5753;">**Error 8b: Variable is not in scope (hint: add `$v` to redeclare...)**</span>
-    1. If g{Scopes}:last:activeMathSymbols does Not contain _symbol_, raise <span style="color:#AB5753;">**Error 15: Symbol is not currently declared (hint: add `$c` or `$v`...)**</span>
+    1. If g{Scopes}:last:activeMathSymbols does Not contain _symbol_, raise <span style="color:#AB5753;">**Error 13: Symbol is not currently declared (hint: add `$c` or `$v`...)**</span>
     1. Call g:checkPossVarHasF(_symbol_)
 
 ## List\<{MathSymbol}>
@@ -133,40 +259,6 @@ and the following methods:
 ### :whenDelete
 
 1. g{InactiveVariables} ++= :localVariableDeclarations
-
-## Syntax summary
-
-- `$[` {MathSymbol} `$]`
-- `${` {{Statement}}<sup>*</sup> `$}`
-- `$c` {MathSymbol}<sup>+</sup> `$.`
-- `$v` {MathSymbol}<sup>+</sup> `$.`
-- `$d` {MathSymbol}<sup>2+</sup> `$.`
-- {Label} `$f` {MathSymbol} {MathSymbol} `$.`
-- {Label} `$e` {MathSymbol} {MathSymbol}<sup>*</sup> `$.`
-- {Label} `$a` {MathSymbol} {MathSymbol}<sup>*</sup> `$.`
-- {Label} `$p` {MathSymbol} {MathSymbol}<sup>*</sup> `$=` {{ProofDetails}} `$.`
-
-where {{ProofDetails}} is
-
-- ({Label} | `?`)<sup>+</sup>
-- `(` {Label}<sup>*</sup> `)` {CompressedProofNumber}<sup>+</sup>
-
-> **Note**:
-> {Whitespace} serves the purpose of separating tokens, but is otherwise ignored,
-> (with the exception of {CompressedProofNumber}).
-
-> **Note**:
-> {{Comment}}s are preprocessed and ignored for the purpose of parsing.
-> With the exception of {{FileInclusion}}s, they can appear anywhere, even "between" two tokens.
-> - `$(` 'Character'<sup>*</sup> `$)`
-
-> **Note**:
-> Even though apparently, all tokens must be surrounded by whitespace, including `$(` and `$)`,
-> I'm pretty sure no actual parser cares in the specific case that a token is at the start
-> or end of a file. So the actual rule is: **tokens are whitespace separated**.
->
-> The EBNF in Appendix E of metamath.pdf (ed. 2) actually shows that whitespace is required in one case:
-> after a comment. However, this is ignored.
 
 ## Syntax and Behavior
 
@@ -307,8 +399,8 @@ These aren't even options, but these errors may exist for increased user-friendl
     1. If g{Constants} does Not contain :typecode, raise <span style="color:#AB5753;">**Error 9: Typecode is not a declared constant (hint: add `$c`...)**</span>
     1. If g{InactiveVariables} contains _variable_, raise <span style="color:#AB5753;">**Error 8b: Variable is not in scope (hint: add `$v` to redeclare...)**</span>
     1. If g{Scopes}:last:activeVariables does Not contain _variable_, raise <span style="color:#AB5753;">**Error 8: Symbol was not declared a variable (hint: add `$v`...)**
-    1. If g{Scopes}:last:activeFHypotheses has an {{FHypothesis}} whose :variable = **this**:variable, raise <span style="color:#AB5753;">**Error 10: $f statement when a previous $f statement for this variable is also active**</span>
-    1. If g{FHypotheses} has an {{FHypothesis}} whose :variable = **this**:variable, and whose :typecode ≠ **this**:typecode, raise <span style="color:#AB5753;">**Error 11: This $f chooses a different type for this variable than a previous $f**</span>
+    1. If g{Scopes}:last:activeFHypotheses has an {{FHypothesis}} whose :variable = **this**:variable, raise <span style="color:#AB5753;">**Error 11: $f statement when a previous $f statement for this variable is also active**</span>
+    1. If g{FHypotheses} has an {{FHypothesis}} whose :variable = **this**:variable, and whose :typecode ≠ **this**:typecode, raise <span style="color:#AB5753;">**Error 12: This $f chooses a different type for this variable than a previous $f**</span>
     1. Add **this** to g{Scopes}:last:localFHypotheses
     1. Add **this** to g{FHypotheses}
     1. Call g:addLabel({Label}, **this**)
@@ -396,37 +488,25 @@ It is allowed to separate parsing verification and proof checking into different
 
 In the below descriptions, a **filler statement** is an unknown statement that can be unified to anything. When unifying, assume the minimum information possible to satisfy the unification.
 
-":parentNode" refers to the enclosing {{Assertion}}.
-
 - ({Label} | `?`)<sup>+</sup>
     1. Let _proof stack_
     1. For each let _label_ : ({Label} | `?`)<sup>+</sup>
         1. If _label_ is `?`, append a filler statement to the _proof stack_.
-        1. Else if g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 10: Unrecognized label**</span>
+        1. Else if g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 16: Unrecognized label**</span>
         1. Else if g:label(_label_) is a hypothesis, append it to the _proof stack_
         1. Else, let _assertion_ be g:label(_label_).
-            1. Let _number of hypotheses_ be _assertion_:hypotheses:length
-            1. Take _number of hypotheses_ elements from the _proof stack_ and assign them to _assertion_:hypotheses (reversing the order if necessary such that the first hypothesis is assigned the bottommost entry), and (uniquely) unify along all the assignments.
-            1. If there are not enough elements in the stack, raise <span style="color:#AB5753;">**Error 11: Step uses more hypotheses than proven**</span>
-            1. If a unification is not possible, raise <span style="color:#AB5753;">**Error 12: Cannot unify steps in proof**</span>
-            1. If two :mandatoryVariables of the assertion are replaced with expressions _A_ and _B_, and there is a corresponding :mandatoryDVPairs, then:
-                1. If _A_ and _B_ have variables in common, raise <span style="color:#AB5753;">**Error 13: Disjoint variable condition violated**</span>
-                1. If _A_ X. _B_ is not a subset of the :parentNode:mandatoryDVPairs, raise <span style="color:#AB5753;">**Error 13b: Disjoint variable condition not satisfied (Hint: add $d ...)**</span>
-    1. If there is more than one element in the _proof stack_, raise <span style="color:#AB5753;">**Error 14: More than one statement remaining at end of proof**</span>
-    1. Assert: There is only one element in the _proof stack_
-    1. If _proof stack_\[0] does not match ":parentNode:typecode :parentNode:expression", raise <span style="color:#AB5753;">**Error 15: A statement different from stated was proven**</span>
+            1. Call :applyAssertion()
+    1. Call :checkProofStack()
 
 - `(` {Label}<sup>*</sup> `)` {CompressedProofNumber}<sup>+</sup>
     1. Let _proof stack_
     1. Let _reference stack_ be a copy of :parentNode:mandatoryHypotheses
     1. For each let _label_ : {Label}<sup>+</sup>
-        1. If g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 10: Unrecognized label**</span>
+        1. If g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 16: Unrecognized label**</span>
         1. Let Some(_node_) be g:label(_label_)
         1. Append _node_ to the _reference stack_
     1. **Note**: At this point, the behavior for {CompressedProofNumber} is run
-    1. If there is more than one element in the _proof stack_, raise <span style="color:#AB5753;">**Error 14: More than one statement remaining at end of proof**</span>
-    1. Assert: There is only one element in the _proof stack_
-    1. If _proof stack_\[0] does not unify exactly with ":parentNode:typecode :parentNode:expression", raise <span style="color:#AB5753;">**Error 15: A statement different from stated was proven**</span>
+    1. Call :checkProofStack()
 
 > **Note**:
 >
@@ -436,6 +516,32 @@ In the below descriptions, a **filler statement** is an unknown statement that c
 >
 > The more general unification algorithm is of course much more complicated.
 
+##### :checkProofStack()
+
+Variables captured from context: _proof stack_
+
+Substitute these steps inline for this "function":
+
+1. If there is more than one element in the _proof stack_, raise <span style="color:#AB5753;">**Error 22: More than one statement remaining at end of proof**</span>
+1. Assert: There is only one element in the _proof stack_
+1. If _proof stack_\[0] does not unify exactly with ":parentNode:typecode :parentNode:expression", raise <span style="color:#AB5753;">**Error 23: A statement different from stated was proven**</span>
+
+##### :applyAssertion()
+
+Variables captured from context: _proof stack_, _assertion_
+
+":parentNode" refers to the {{Assertion}} enclosing this {{ProofDetails}}.
+
+Substitute these steps inline for this "function":
+
+1. Let _number of hypotheses_ be _assertion_:hypotheses:length
+1. Take _number of hypotheses_ elements from the _proof stack_ and assign them to _assertion_:hypotheses (reversing the order if necessary such that the first hypothesis is assigned the bottommost entry), and (uniquely) unify along all the assignments.
+1. If there are not enough elements in the stack, raise <span style="color:#AB5753;">**Error 17: Step uses more hypotheses than proven**</span>
+1. If a unification is not possible, raise <span style="color:#AB5753;">**Error 18: Cannot unify steps in proof**</span>
+1. If two :mandatoryVariables of the assertion are replaced with expressions _A_ and _B_, and there is a corresponding :mandatoryDVPairs, then:
+    1. If _A_ and _B_ have variables in common, raise <span style="color:#AB5753;">**Error 19: Disjoint variable condition violated**</span>
+    1. If _A_ X. _B_ is not a subset of the :parentNode:mandatoryDVPairs, raise <span style="color:#AB5753;">**Error 19b: Disjoint variable condition not satisfied (Hint: add $d ...)**</span>
+
 ### {CompressedProofNumber}
 
 - `?`
@@ -444,77 +550,18 @@ In the below descriptions, a **filler statement** is an unknown statement that c
 
 #### Behavior
 
-This behavior is only run within {{ProofDetails}}'s behavior. ":parentNode" refers to the enclosing {{Assertion}}.
+This behavior is only run within {{ProofDetails}}'s behavior. ":applyAssertion()" refers to the enclosing {{ProofDetails}}'s ":applyAssertion()".
 
 - `?`
     1. Append a filler statement to the _proof stack_.
 - `Z`
-    1. If the _proof stack_ is empty, raise <span style="color:#AB5753;">**Error 16: No subproof to recall**</span>
-    1. Duplicate the top of the _proof stack_ and append it to the _reference stack_.
+    1. If the _proof stack_ is empty, raise <span style="color:#AB5753;">**Error 20: No subproof to recall**</span>
+    1. Copy the top of the _proof stack_ and append that to the _reference stack_.
 - \[`U`-`Y`]<sup>*</sup> {Whitespace}<sup>?</sup> \[`A`-`T`]<sup>+</sup>
     1. Let _base5_ be \[`U`-`Y`]<sup>*</sup> parsed as base 5
     1. Let _base20_ be \[`A`-`T`]<sup>+</sup> parsed as base 20
     1. Let _index_ be 20 * (1 + _base5_) + _base20_
-    1. If _reference stack_\[_index_] does not exist, raise <span style="color:#AB5753;">**Error 17: Proof failed: Compressed number too large and does not reference anything**</span>
-    1. If _reference stack_\[_index_] is a subproof or hypothesis, append it to the _proof stack_
+    1. If _reference stack_\[_index_] does not exist, raise <span style="color:#AB5753;">**Error 21: Proof failed: Compressed number too large and does not reference anything**</span>
+    1. If _reference stack_\[_index_] is a hypothesis or a `Z`-duplication, append it to the _proof stack_
     1. Else, let _assertion_ be _reference stack_\[_index_].
-        1. Let _number of hypotheses_ be _assertion_:hypotheses:length
-        1. Take _number of hypotheses_ elements from the _proof stack_ and assign them to _assertion_:hypotheses (reversing the order if necessary such that the first hypothesis is assigned the bottommost entry), and (uniquely) unify along all the assignments.
-        1. If there are not enough elements in the stack, raise <span style="color:#AB5753;">**Error 11: Step uses more hypotheses than proven**</span>
-        1. If a unification is not possible, raise <span style="color:#AB5753;">**Error 12: Cannot unify steps in compressed proof**</span>
-        1. If two :mandatoryVariables of the assertion are replaced with expressions _A_ and _B_, and there is a corresponding :mandatoryDVPairs, then:
-            1. If _A_ and _B_ have variables in common, raise <span style="color:#AB5753;">**Error 13: Disjoint variable condition violated**</span>
-            1. If _A_ X. _B_ is not a subset of the :parentNode:mandatoryDVPairs, raise <span style="color:#AB5753;">**Error 13b: Disjoint variable condition not satisfied (Hint: add $d ...)**</span>
-
-## Tokens and characters
-
-### {{Comment}}
-
-- `$(` 'Character'<sup>*</sup> `$)`
-
-#### Behavior
-
-- `$(` 'Character'<sup>*</sup> `$)`
-    1. If 'Character'<sup>*</sup> contains a `$(`, raise <span style="color:#AB5753;">**Warning: Nested comments are not supported**</span>.
-
-### 'Character'
-
-- 'WhitespaceCharacter'
-- 'MathCharacter'
-- `$`
-
-> **Note**: \[`!`-`~`] plus whitespace
-
-### {Whitespace}
-
-- 'WhitespaceCharacter'<sup>+</sup>
-
-### 'WhitespaceCharacter'
-
-- Space ` `
-- Tab `\t`
-- Carriage return `\r`
-- Line feed `\n`
-- Form feed `\f` (`\x0C` if `\f` not supported)
-
-### {Label}
-
-- {LabelCharacter}<sup>+</sup>
-
-### 'LabelCharacter'
-
-- \[`a`-`z`]
-- \[`A`-`Z`]
-- \[`0`-`9`]
-- one of `- _ .`
-
-### {MathSymbol}
-
-- 'MathCharacter'<sup>+</sup>
-
-### 'MathCharacter'
-
-- 'LabelCharacter'
-- one of ``! " # % & ' ( ) * + , / : ; < = > ? @ [ \ ] ^ ` { | } ~``
-
-> **Note**: \[`!`-`~`] but _not_ "$"
+        1. Call :applyAssertion()
