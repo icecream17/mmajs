@@ -157,7 +157,7 @@ The following "global variables" are declared:
 | Set\<{MathSymbol}>         | g{MathSymbols}          |
 | Set\<{MathSymbol}>         | g{InactiveVariables}          |
 | List\<{{FHypothesis}}>     | g{FHypotheses}   |
-| List\<({Label}, {{FHypothesis}} \| {{EssentialHypothesis}} \| {{Assertion}})> | g{Labels}   |
+| List\<({Label}, {{Hypothesis}} \| {{Assertion}})> | g{Labels}   |
 
 > **Note**: Whenever g{InactiveVariables} is accessed, first perform:
 > 1. Remove any variable in g{Scopes}:last:activeVariables from g{InactiveVariables}
@@ -167,7 +167,7 @@ The following "global variables" are declared:
 1. Add the top level file name to g{FilesIncluded}.
 1. Add a new scope to g{Scopes}.
 
-## g:label(_label_: {Label})
+## g:label(_label_: {Label}) → Option\<{{Hypothesis}} \| {{Assertion}}>
 
 1. For each let (_l_, _node_) in g{Labels}:
     1. If _l_ is _label_, return Some(_node_)
@@ -216,29 +216,31 @@ A scope has the following attributes:
 
 and the following methods:
 
-### :parentScope
+### :parentScope → Option<{{Scope}}>
 
 1. Let _index_ be the index of **this** scope in g{Scopes}
 1. If _index_ is 0, return None
 1. Return Some(g{Scopes}\[_index_ - 1])
 
-### :activeVariables
+### :activeVariables → Set\<{MathSymbol}>
 
 1. If :parentScope is None, return :localVariableDeclarations
 1. Return :localVariableDeclarations ++ :parentScope:activeVariables
 
 > Note: ++ is the concatenation operation in Metamath
+>
+> It shall also mean "union" in the case of sets.
 
-### :activeMathSymbols
+### :activeMathSymbols → Set\<{MathSymbol}>
 
 1. Return :activeVariables ++ g{Constants}
 
-### :activeDVConditions
+### :activeDVConditions → Set\<{{DVCondition}}>
 
 1. If :parentScope is None, return :localDVConditions
 1. Return :localDVConditions ++ :parentScope:activeDVConditions
 
-### :activeDVPairs
+### :activeDVPairs → Set\<pairs of {{DVCondition}}>
 
 1. Return Set(:activeDVConditions flatMap (_DVCondition_ ↦ _DVConditions_:pairs))
 
@@ -246,12 +248,12 @@ and the following methods:
 
 > **Note**: `Set` is there to avoid returning duplicate pairs.
 
-### :activeFHypotheses
+### :activeFHypotheses → List\<{{FHypothesis}}>
 
 1. If :parentScope is None, return :localFHypotheses
 1. Return :localFHypotheses ++ :parentScope:activeFHypotheses
 
-### :activeEssentialHypotheses
+### :activeEssentialHypotheses → List\<{{EssentialHypothesis}}>
 
 1. If :parentScope is None, return :localEssentialHypotheses
 1. Return :localEssentialHypotheses ++ :parentScope:activeEssentialHypotheses
@@ -307,7 +309,7 @@ A file is parsed according to the {{Database}} syntax production.
 - {{Scope}}
 - {{VariableDeclaration}}
 - {{DVCondition}}
-- {{FHypothesis}}
+- {{Hypothesis}}
 - {{Assertion}}
 
 > **Note**:
@@ -333,6 +335,8 @@ These aren't even options, but these errors may exist for increased user-friendl
 - `${` {{Statement}}<sup>*</sup> `$}`
     1. When the `${` token is parsed, push a new scope to g{Scopes}
     1. When the `$}` token is parsed, call (pop g{Scopes}):whenDelete
+
+> Note: Many attributes and methods are defined under the header [#Scope](#Scope).
 
 ### {{ConstantDeclaration}}
 
@@ -377,13 +381,20 @@ These aren't even options, but these errors may exist for increased user-friendl
         1. If g{Scopes}:last:activeVariables does Not contain _variable_, raise <span style="color:#AB5753;">**Error 8: Symbol was not declared a variable (hint: add `$v`...)**</span>
     1. Add **this** to g{Scopes}:last:localDVConditions
 
-#### :pairs
+#### :pairs 
 
 - `$d` {MathSymbol}<sup>2+</sup> `$.`
     1. Assert: g{Scopes} is nonempty
     1. Return the set of (_a_, _b_) where _a_ and _b_ are different {MathSymbol}s and _a_ < _b_ according to some arbitrary but globally consistent ordering.
 
+### {{Hypothesis}}
+
+- {{FHypothesis}}
+- {{EssentialHypothesis}}
+
 ### {{FHypothesis}}
+
+A floating hypothesis.
 
 - {Label} `$f` {MathSymbol} {MathSymbol} `$.`
 
@@ -493,7 +504,7 @@ In the below descriptions, a **filler statement** is an unknown statement that c
     1. For each let _label_ : ({Label} | `?`)<sup>+</sup>
         1. If _label_ is `?`, append a filler statement to the _proof stack_.
         1. Else if g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 16: Unrecognized label**</span>
-        1. Else if g:label(_label_) is a hypothesis, append it to the _proof stack_
+        1. Else if g:label(_label_) is a {{Hypothesis}}, append it to the _proof stack_
         1. Else, let _assertion_ be g:label(_label_).
             1. Call :applyAssertion()
     1. Call :checkProofStack()
@@ -562,6 +573,6 @@ This behavior is only run within {{ProofDetails}}'s behavior. ":applyAssertion()
     1. Let _base20_ be \[`A`-`T`]<sup>+</sup> parsed as base 20
     1. Let _index_ be 20 * (1 + _base5_) + _base20_
     1. If _reference stack_\[_index_] does not exist, raise <span style="color:#AB5753;">**Error 21: Proof failed: Compressed number too large and does not reference anything**</span>
-    1. If _reference stack_\[_index_] is a hypothesis or a `Z`-duplication, append it to the _proof stack_
+    1. If _reference stack_\[_index_] is a {{Hypothesis}} or a `Z`-duplication, append it to the _proof stack_
     1. Else, let _assertion_ be _reference stack_\[_index_].
         1. Call :applyAssertion()
