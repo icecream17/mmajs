@@ -137,8 +137,12 @@ where {{ProofDetails}} is
 - `(` {Label}<sup>*</sup> `)` {CompressedProofNumber}<sup>+</sup>
 
 > **Note**:
-> Comments are preprocessed and deleted for the purpose of parsing.
-> That means they can appear anywhere, even "between" two tokens.
+> {Whitespace} serves the purpose of separating tokens, but is otherwise ignored,
+> (with the exception of {CompressedProofNumber}).
+
+> **Note**:
+> {{Comment}}s are preprocessed and ignored for the purpose of parsing.
+> With the exception of {{FileInclusion}}s, they can appear anywhere, even "between" two tokens.
 > - `$(` 'Character'<sup>*</sup> `$)`
 
 > **Note**:
@@ -146,10 +150,8 @@ where {{ProofDetails}} is
 > I'm pretty sure no actual parser cares in the specific case that a token is at the start
 > or end of a file. So the actual rule is: **tokens are whitespace separated**.
 >
-> My code can partially ignore this rule, and allow some programs to succeed parsing where they
-> should fail. But this can never be relied on. It will also warn in the only situation where
-> the EBNF in Appendix E of metamath.pdf (ed. 2) actually shows that whitespace is required:
-> after a comment.
+> The EBNF in Appendix E of metamath.pdf (ed. 2) actually shows that whitespace is required in one case:
+> after a comment. However, this is ignored.
 
 ## Syntax and Behavior
 
@@ -168,18 +170,6 @@ A file is parsed according to the {{Database}} syntax production.
 > The {EOF} token may be considered one of the variants or alternatives of {{Item}}.
 
 > **Note**:
->
-> {Whitespace} plays a special role in the lexer:
-> whenever it is encountered, the current token ends,
-> (with the exception of {CompressedProofNumber})
-> and the rest of the whitespace is eaten.
->
-> For convenience in coding, a token will end iff there is whitespace
-> or the {EOF}
->
-> A {Comment} is separated from other tokens by whitespace.
-> {Comment}s are also ignored, but they won't ever end a token or anything.
->
 > If a token does not match any option, raise <span style="color:#AB5753;">**Error 0: Unexpected token**</span>
 
 ### {{Item}}
@@ -190,7 +180,11 @@ A file is parsed according to the {{Database}} syntax production.
 
 ### {{FileInclusion}}
 
+> **Note**: {{Comment}}s may _not_ be in a {{FileInclusion}}
+
 - `$[` {MathSymbol} `$]`
+
+> **Note**: This implies the filename may not have whitespace or a `$`.
 
 #### Behavior
 
@@ -386,6 +380,8 @@ These aren't even options, but these errors may exist for increased user-friendl
 
 #### Behavior
 
+It is allowed to separate parsing verification and proof checking into different phases.
+
 In the below descriptions, a **filler statement** is an unknown statement that can be unified to anything. When unifying, assume the minimum information possible to satisfy the unification.
 
 - ({Label} | `?`)<sup>+</sup>
@@ -458,25 +454,22 @@ This behavior is only run within {{ProofDetails}}'s behavior.
 
 ## Tokens and characters
 
-### {Comment}
+### {{Comment}}
 
 - `$(` 'Character'<sup>*</sup> `$)`
-
-> **Note**:
->
-> In mmaj, tokens are whitespace separated strings, so a {Comment} becomes a production: {{Comment}}
-> whose tokens are {{CommentedLiteral}}'s.
 
 #### Behavior
 
 - `$(` 'Character'<sup>*</sup> `$)`
-    1. If 'Character'<sup>*</sup> contains a `$(`, raise <span style="color:#AB5753;">**Error 1: Nested comments are not supported**</span>.
+    1. If 'Character'<sup>*</sup> contains a `$(`, raise <span style="color:#AB5753;">**Warning: Nested comments are not supported**</span>.
 
 ### 'Character'
 
 - 'WhitespaceCharacter'
 - 'MathCharacter'
 - `$`
+
+> **Note**: \[`!`-`~`] plus whitespace
 
 ### {Whitespace}
 
@@ -510,7 +503,4 @@ This behavior is only run within {{ProofDetails}}'s behavior.
 - 'LabelCharacter'
 - one of ``! " # % & ' ( ) * + , / : ; < = > ? @ [ \ ] ^ ` { | } ~``
 
-##### Every vector space has a basis
-
-1. Using the Axiom of Choice, there is a choice function from nonzero singleton spans to nonzero vectors.
-1. The range of that function is a basis.
+> **Note**: \[`!`-`~`] but _not_ "$"
