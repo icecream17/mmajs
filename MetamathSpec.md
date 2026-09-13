@@ -31,7 +31,12 @@ The following "global variables" are declared:
 | Set\<{MathSymbol}>         | g{MathSymbols}          |
 | Set\<{MathSymbol}>         | g{InactiveVariables}          |
 | List\<{{FHypothesis}}>     | g{FHypotheses}   |
-| List\<({Label}, {{FHypothesis}} \| {{Assertion}})> | g{Labels}   |
+| List\<({Label}, {{FHypothesis}} \| {{EssentialHypothesis}} \| {{Assertion}})> | g{Labels}   |
+
+> **Note**: Whenever g{InactiveVariables} is accessed, first perform:
+> 1. Remove any variable in g{Scopes}:last:activeVariables from g{InactiveVariables}
+
+...and the following initialization steps are run:
 
 1. Add the top level file name to g{FilesIncluded}.
 1. Add a new scope to g{Scopes}.
@@ -50,10 +55,20 @@ The following "global variables" are declared:
 
 ## g:checkPossVarHasF(_variable_: {MathSymbol})
 
+If _variable_ is a variable (not a constant), this checks for a corresponding {{FHypothesis}}.
+
 1. Assert: g{Scopes} is nonempty
 1. If g{Scopes}:last:activeVariables contains _variable_,
-    1. If g{Scopes}:last:activeFHypotheses does Not contain an {FHypothesis} whose
-       :variable = _variable_, raise <span style="color:#AB5753;">**Error -3: Type of variable not defined yet**</span>
+    1. If g{Scopes}:last:activeFHypotheses does Not contain an {{FHypothesis}} whose
+       :variable = _variable_, raise <span style="color:#AB5753;">**Error -3: Type of variable not defined yet (hint: add `$f`...)**</span>
+
+## g:checkSymbolsAreDeclared(_typecode_: {MathSymbol}, _symbols_: {MathSymbol}<sup>*</sup>)
+
+1. If g{Constants} does Not contain :typecode, raise <span style="color:#AB5753;">**Error 9: Typecode is not a declared constant (hint: add `$c`...)**</span>
+1. For each let _symbol_ : :expression:
+    1. If g{InactiveVariables} contains _symbol_, raise <span style="color:#AB5753;">**Error 8b: Variable is not in scope (hint: add `$v` to redeclare...)**</span>
+    1. If g{Scopes}:last:activeMathSymbols does Not contain _symbol_, raise <span style="color:#AB5753;">**Error 15: Symbol is not currently declared (hint: add `$c` or `$v`...)**</span>
+    1. Call g:checkPossVarHasF(_symbol_)
 
 ## List\<{MathSymbol}>
 
@@ -190,7 +205,7 @@ A file is parsed according to the {{Database}} syntax production.
 
 - `$[` {MathSymbol} `$]`
     1. Let _filename_ be {MathSymbol}
-    1. If there is no file at _filename_, raise <span style="color:#AB5753;">**Error 2: File does not exist**</span>
+    1. If there is no file at _filename_, raise <span style="color:#AB5753;">**Error 1: File does not exist**</span>
     1. If g{FilesIncluded} does not contain _filename_:
         1. Add {{Filename}} to g{FilesIncluded}
         1. Insert the contents of the file **without** the custom {`EOF`} token at the current point.
@@ -211,11 +226,11 @@ A file is parsed according to the {{Database}} syntax production.
 
 These aren't even options, but these errors may exist for increased user-friendliness.
 - {{ConstantDeclaration}}
-    1. Raise <span style="color:#AB5753;">**Error 3: Constant declarations must be global**</span>
+    1. Raise <span style="color:#AB5753;">**Error 2: Constant declarations must be global**</span>
 - {{FileInclusion}}
-    1. Raise <span style="color:#AB5753;">**Error 4: File inclusions must be global**</span>
+    1. Raise <span style="color:#AB5753;">**Error 3: File inclusions must be global**</span>
 - {`EOF`}
-    1. Raise <span style="color:#AB5753;">**Error 5: File did not end in global scope**</span>
+    1. Raise <span style="color:#AB5753;">**Error 4: File did not end in global scope**</span>
 
 ### {{Scope}}
 
@@ -236,9 +251,9 @@ These aren't even options, but these errors may exist for increased user-friendl
 - `$c` {MathSymbol}<sup>+</sup> `$.`
     1. Assert: g{Scopes}:length = 1
     1. For each let _symbol_ : {MathSymbol}:
-        1. If g{Scopes}:last:activeVariables contains _symbol_, raise <span style="color:#AB5753;">**Error 6: Variables may not be redeclared as constants**</span>
-        1. If g{InactiveVariables} contains _symbol_, raise <span style="color:#AB5753;">**Error 6: Variables (even when out of scope) may not be redeclared as constants**</span>
-        1. If g{Constants} contains _symbol_, raise <span style="color:#AB5753;">**Error 7: Constant symbols may not be redeclared**</span>
+        1. If g{Scopes}:last:activeVariables contains _symbol_, raise <span style="color:#AB5753;">**Error 5b: Variables may not be redeclared as constants**</span>
+        1. If g{InactiveVariables} contains _symbol_, raise <span style="color:#AB5753;">**Error 5c: Variables (even when out of scope) may not be redeclared as constants**</span>
+        1. If g{Constants} contains _symbol_, raise <span style="color:#AB5753;">**Error 6: Constant symbols may not be redeclared**</span>
         1. Add _symbol_ to g{Constants}
         1. Add _symbol_ to g{MathSymbols}
 
@@ -251,9 +266,9 @@ These aren't even options, but these errors may exist for increased user-friendl
 - `$v` {MathSymbol}<sup>+</sup> `$.`
     1. Assert: g{Scopes} is nonempty
     1. For each let _symbol_ : {MathSymbol}:
-        1. If g{Constants} contains _symbol_, raise <span style="color:#AB5753;">**Error 8: Constant symbols may not be redeclared as variables**</span>
-        1. If g{Scopes}:last:activeVariables contains _symbol_, raise <span style="color:#AB5753;">**Error 9: Variables may not be redeclared (in scope)**</span>
-        1. Add _symbol_ to g{Scopes}:last:activeVariables
+        1. If g{Constants} contains _symbol_, raise <span style="color:#AB5753;">**Error 6b: Constant symbols may not be redeclared as variables**</span>
+        1. If g{Scopes}:last:activeVariables contains _symbol_, raise <span style="color:#AB5753;">**Error 5: Variables may not be redeclared (in scope)**</span>
+        1. Add _symbol_ to g{Scopes}:last:localVariableDeclarations
         1. Add _symbol_ to g{MathSymbols}
 
 ### {{DVCondition}}
@@ -265,8 +280,10 @@ These aren't even options, but these errors may exist for increased user-friendl
 - `$d` {MathSymbol}<sup>2+</sup> `$.`
     1. Assert: g{Scopes} is nonempty
     1. For each let _variable_ : {MathSymbol}
-        1. If g{Scopes}:last:activeVariables does Not contain _variable_, raise <span style="color:#AB5753;">**Error 11: Variable is not declared (in scope)**</span>
-    1. Add **this** to g{Scopes}:last:DVConditions
+        1. If g{Constants} contains _variable_, raise <span style="color:#AB5753;">**Error 7: Constants cannot be in `$d` "disjoint variable conditions"**</span>
+        1. If g{InactiveVariables} contains _variable_, raise <span style="color:#AB5753;">**Error 8b: Variable is not in scope (hint: add `$v` to redeclare...)**</span>
+        1. If g{Scopes}:last:activeVariables does Not contain _variable_, raise <span style="color:#AB5753;">**Error 8: Symbol was not declared a variable (hint: add `$v`...)**</span>
+    1. Add **this** to g{Scopes}:last:localDVConditions
 
 #### :pairs
 
@@ -287,11 +304,12 @@ These aren't even options, but these errors may exist for increased user-friendl
 
 - {Label} `$f` {MathSymbol} {MathSymbol} `$.`
     1. Assert: g{Scopes} is nonempty
-    1. If g{Constants} does Not contain :typecode, raise <span style="color:#AB5753;">**Error 10: Type of variable is not a declared constant**</span>
-    1. If g{Scopes}:last:activeVariables does Not contain :variable, raise <span style="color:#AB5753;">**Error 11: Variable is not declared (in scope)**</span>
-    1. If g{Scopes}:last:FHypotheses has an {{FHypothesis}} whose :variable = this:**variable**, raise <span style="color:#AB5753;">**Error 12: $f statement when a previous $f statement for this variable is also active**</span>
-    1. If g{FHypotheses} has an {{FHypothesis}} whose :variable = this:**variable**, and whose :typecode ≠ **this**:typecode, raise <span style="color:#AB5753;">**Error 13: This $f chooses a different type for this variable than a previous $f**</span>
-    1. Add **this** to g{Scopes}:last:fHypotheses
+    1. If g{Constants} does Not contain :typecode, raise <span style="color:#AB5753;">**Error 9: Typecode is not a declared constant (hint: add `$c`...)**</span>
+    1. If g{InactiveVariables} contains _variable_, raise <span style="color:#AB5753;">**Error 8b: Variable is not in scope (hint: add `$v` to redeclare...)**</span>
+    1. If g{Scopes}:last:activeVariables does Not contain _variable_, raise <span style="color:#AB5753;">**Error 8: Symbol was not declared a variable (hint: add `$v`...)**
+    1. If g{Scopes}:last:activeFHypotheses has an {{FHypothesis}} whose :variable = **this**:variable, raise <span style="color:#AB5753;">**Error 10: $f statement when a previous $f statement for this variable is also active**</span>
+    1. If g{FHypotheses} has an {{FHypothesis}} whose :variable = **this**:variable, and whose :typecode ≠ **this**:typecode, raise <span style="color:#AB5753;">**Error 11: This $f chooses a different type for this variable than a previous $f**</span>
+    1. Add **this** to g{Scopes}:last:localFHypotheses
     1. Add **this** to g{FHypotheses}
     1. Call g:addLabel({Label}, **this**)
 
@@ -309,11 +327,8 @@ These aren't even options, but these errors may exist for increased user-friendl
 
 - {Label} `$e` {MathSymbol} {MathSymbol}<sup>*</sup> `$.`
     1. Assert: g{Scopes} is nonempty
-    1. If g{Constants} does Not contain :typecode, raise <span style="color:#AB5753;">**Error 14: Type of expression is not a declared constant**</span>
-    1. For each let _symbol_ : :expression:
-        1. If g{Scopes}:last:activeMathSymbols does Not contain :typecode, raise <span style="color:#AB5753;">**Error 15: Symbol is not currently declared**</span>
-        1. Call g:checkPossVarHasF(_symbol_)
-    1. Add **this** to g{Scopes}:last:essentialHypotheses
+    1. Call g:checkSymbolsAreDeclared({MathSymbol}, {MathSymbol}<sup>*</sup>)
+    1. Add **this** to g{Scopes}:last:localEssentialHypotheses
     1. Call g:addLabel({Label}, **this**)
 
 ### {{Assertion}}
@@ -363,10 +378,7 @@ These aren't even options, but these errors may exist for increased user-friendl
 - {Label} `$a` {MathSymbol} {MathSymbol}<sup>*</sup> `$.`
 - {Label} `$p` {MathSymbol} {MathSymbol}<sup>*</sup> `$=` {{ProofDetails}} `$.`
     1. Assert: g{Scopes} is nonempty
-    1. If g{Constants} does Not contain :typecode, raise <span style="color:#AB5753;">**Error 14: Type of expression is not a declared constant**</span>
-    1. For each let _symbol_ : :expression:
-        1. If g{Scopes}:last:activeMathSymbols does Not contain :typecode, raise <span style="color:#AB5753;">**Error 15: Symbol is not currently declared**</span>
-        1. Call g:checkPossVarHasF(_symbol_)
+    1. Call g:checkSymbolsAreDeclared({MathSymbol}, {MathSymbol}<sup>*</sup>)
     1. Call g:addLabel({Label}, **this**)
 
 > **Note**:
@@ -384,35 +396,37 @@ It is allowed to separate parsing verification and proof checking into different
 
 In the below descriptions, a **filler statement** is an unknown statement that can be unified to anything. When unifying, assume the minimum information possible to satisfy the unification.
 
+":parentNode" refers to the enclosing {{Assertion}}.
+
 - ({Label} | `?`)<sup>+</sup>
     1. Let _proof stack_
     1. For each let _label_ : ({Label} | `?`)<sup>+</sup>
         1. If _label_ is `?`, append a filler statement to the _proof stack_.
-        1. Else if g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 24: Unrecognized label**</span>
+        1. Else if g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 10: Unrecognized label**</span>
         1. Else if g:label(_label_) is a hypothesis, append it to the _proof stack_
         1. Else, let _assertion_ be g:label(_label_).
             1. Let _number of hypotheses_ be _assertion_:hypotheses:length
             1. Take _number of hypotheses_ elements from the _proof stack_ and assign them to _assertion_:hypotheses (reversing the order if necessary such that the first hypothesis is assigned the bottommost entry), and (uniquely) unify along all the assignments.
-            1. If there are not enough elements in the stack, raise <span style="color:#AB5753;">**Error 18: Step uses more hypotheses than proven**</span>
-            1. If a unification is not possible, raise <span style="color:#AB5753;">**Error 17: Cannot unify steps in compressed proof**</span>
+            1. If there are not enough elements in the stack, raise <span style="color:#AB5753;">**Error 11: Step uses more hypotheses than proven**</span>
+            1. If a unification is not possible, raise <span style="color:#AB5753;">**Error 12: Cannot unify steps in proof**</span>
             1. If two :mandatoryVariables of the assertion are replaced with expressions _A_ and _B_, and there is a corresponding :mandatoryDVPairs, then:
-                1. If _A_ and _B_ have variables in common, raise <span style="color:#AB5753;">**Error 21: Disjoint variable condition violated**</span>
-                1. If _A_ X. _B_ is not a subset of the :parentNode:mandatoryDVPairs, raise <span style="color:#AB5753;">**Error 22: Disjoint variable condition not satisfied (Hint: add $d ...)**</span>
-    1. If there is more than one element in the _proof stack_, raise <span style="color:#AB5753;">**Error 19: More than one statement remaining at end of proof**</span>
+                1. If _A_ and _B_ have variables in common, raise <span style="color:#AB5753;">**Error 13: Disjoint variable condition violated**</span>
+                1. If _A_ X. _B_ is not a subset of the :parentNode:mandatoryDVPairs, raise <span style="color:#AB5753;">**Error 13b: Disjoint variable condition not satisfied (Hint: add $d ...)**</span>
+    1. If there is more than one element in the _proof stack_, raise <span style="color:#AB5753;">**Error 14: More than one statement remaining at end of proof**</span>
     1. Assert: There is only one element in the _proof stack_
-    1. If _proof stack_\[0] does not match ":parentNode:typecode :parentNode:expression", raise <span style="color:#AB5753;">**Error 20: A statement different from stated was proven**</span>
+    1. If _proof stack_\[0] does not match ":parentNode:typecode :parentNode:expression", raise <span style="color:#AB5753;">**Error 15: A statement different from stated was proven**</span>
 
 - `(` {Label}<sup>*</sup> `)` {CompressedProofNumber}<sup>+</sup>
     1. Let _proof stack_
     1. Let _reference stack_ be a copy of :parentNode:mandatoryHypotheses
     1. For each let _label_ : {Label}<sup>+</sup>
-        1. If g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 24: Unrecognized label**</span>
+        1. If g:label(_label_) is None, raise <span style="color:#AB5753;">**Error 10: Unrecognized label**</span>
         1. Let Some(_node_) be g:label(_label_)
         1. Append _node_ to the _reference stack_
     1. **Note**: At this point, the behavior for {CompressedProofNumber} is run
-    1. If there is more than one element in the _proof stack_, raise <span style="color:#AB5753;">**Error 19: More than one statement remaining at end of proof**</span>
+    1. If there is more than one element in the _proof stack_, raise <span style="color:#AB5753;">**Error 14: More than one statement remaining at end of proof**</span>
     1. Assert: There is only one element in the _proof stack_
-    1. If _proof stack_\[0] does not unify exactly with ":parentNode:typecode :parentNode:expression", raise <span style="color:#AB5753;">**Error 20: A statement different from stated was proven**</span>
+    1. If _proof stack_\[0] does not unify exactly with ":parentNode:typecode :parentNode:expression", raise <span style="color:#AB5753;">**Error 15: A statement different from stated was proven**</span>
 
 > **Note**:
 >
@@ -430,7 +444,7 @@ In the below descriptions, a **filler statement** is an unknown statement that c
 
 #### Behavior
 
-This behavior is only run within {{ProofDetails}}'s behavior.
+This behavior is only run within {{ProofDetails}}'s behavior. ":parentNode" refers to the enclosing {{Assertion}}.
 
 - `?`
     1. Append a filler statement to the _proof stack_.
@@ -441,16 +455,16 @@ This behavior is only run within {{ProofDetails}}'s behavior.
     1. Let _base5_ be \[`U`-`Y`]<sup>*</sup> parsed as base 5
     1. Let _base20_ be \[`A`-`T`]<sup>+</sup> parsed as base 20
     1. Let _index_ be 20 * (1 + _base5_) + _base20_
-    1. If _reference stack_\[_index_] does not exist, raise <span style="color:#AB5753;">**Error 23: Proof failed: Compressed number too large and does not reference anything**</span>
+    1. If _reference stack_\[_index_] does not exist, raise <span style="color:#AB5753;">**Error 17: Proof failed: Compressed number too large and does not reference anything**</span>
     1. If _reference stack_\[_index_] is a subproof or hypothesis, append it to the _proof stack_
     1. Else, let _assertion_ be _reference stack_\[_index_].
         1. Let _number of hypotheses_ be _assertion_:hypotheses:length
         1. Take _number of hypotheses_ elements from the _proof stack_ and assign them to _assertion_:hypotheses (reversing the order if necessary such that the first hypothesis is assigned the bottommost entry), and (uniquely) unify along all the assignments.
-        1. If there are not enough elements in the stack, raise <span style="color:#AB5753;">**Error 18: Step uses more hypotheses than proven**</span>
-        1. If a unification is not possible, raise <span style="color:#AB5753;">**Error 17: Cannot unify steps in compressed proof**</span>
+        1. If there are not enough elements in the stack, raise <span style="color:#AB5753;">**Error 11: Step uses more hypotheses than proven**</span>
+        1. If a unification is not possible, raise <span style="color:#AB5753;">**Error 12: Cannot unify steps in compressed proof**</span>
         1. If two :mandatoryVariables of the assertion are replaced with expressions _A_ and _B_, and there is a corresponding :mandatoryDVPairs, then:
-            1. If _A_ and _B_ have variables in common, raise <span style="color:#AB5753;">**Error 21: Disjoint variable condition violated**</span>
-            1. If _A_ X. _B_ is not a subset of the :parentNode:mandatoryDVPairs, raise <span style="color:#AB5753;">**Error 22: Disjoint variable condition not satisfied (Hint: add $d ...)**</span>
+            1. If _A_ and _B_ have variables in common, raise <span style="color:#AB5753;">**Error 13: Disjoint variable condition violated**</span>
+            1. If _A_ X. _B_ is not a subset of the :parentNode:mandatoryDVPairs, raise <span style="color:#AB5753;">**Error 13b: Disjoint variable condition not satisfied (Hint: add $d ...)**</span>
 
 ## Tokens and characters
 
