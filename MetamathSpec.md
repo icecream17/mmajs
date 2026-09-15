@@ -381,7 +381,7 @@ These aren't even options, but these errors may exist for increased user-friendl
         1. If g{Scopes}:last:activeVariables does Not contain _variable_, raise <span style="color:#AB5753;">**Error 8: Symbol was not declared a variable (hint: add `$v`...)**</span>
     1. Add **this** to g{Scopes}:last:localDVConditions
 
-#### :pairs 
+#### :pairs
 
 - `$d` {MathSymbol}<sup>2+</sup> `$.`
     1. Assert: g{Scopes} is nonempty
@@ -557,7 +557,9 @@ Substitute these steps inline for this "function":
 
 - `?`
 - `Z`
-- \[`U`-`Y`]<sup>*</sup> {Whitespace}<sup>?</sup> \[`A`-`T`]<sup>+</sup>
+- \[`U`-`Y`]<sup>*</sup> \[`A`-`T`]<sup>+</sup>
+
+**In the third option, whitespace may interrupt anywhere!**
 
 #### Behavior
 
@@ -568,7 +570,7 @@ This behavior is only run within {{ProofDetails}}'s behavior. ":applyAssertion()
 - `Z`
     1. If the _proof stack_ is empty, raise <span style="color:#AB5753;">**Error 20: No subproof to recall**</span>
     1. Copy the top of the _proof stack_ and append that to the _reference stack_.
-- \[`U`-`Y`]<sup>*</sup> {Whitespace}<sup>?</sup> \[`A`-`T`]<sup>+</sup>
+- \[`U`-`Y`]<sup>*</sup> \[`A`-`T`]<sup>+</sup>
     1. Let _base5_ be \[`U`-`Y`]<sup>*</sup> parsed as base 5
     1. Let _base20_ be \[`A`-`T`]<sup>+</sup> parsed as base 20
     1. Let _index_ be 20 * (1 + _base5_) + _base20_

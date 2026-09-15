@@ -4,5 +4,5 @@
 #![warn(clippy::pedantic)]
 #![allow(dead_code)]
 
-pub(crate) mod diag;
+// pub(crate) mod diag;
 mod parser;
