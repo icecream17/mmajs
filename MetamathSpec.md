@@ -304,6 +304,10 @@ A file is parsed according to the {{Database}} syntax production.
         1. Add {{Filename}} to g{FilesIncluded}
         1. Insert the contents of the file **without** the custom {`EOF`} token at the current point.
 
+> **Note**: If _filename_ was already included, this is a noop.
+
+> **Note**: There may be an error if the file is too large or otherwise could not be read.
+
 ### {{Statement}}
 
 - {{Scope}}

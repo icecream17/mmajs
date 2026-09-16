@@ -1,6 +1,10 @@
 
 The next step is to figure out the structure and implementation of parsing.
 
+Alternatively, we can implementing the part that reads a file
+and converts it into a string or something. But that structure
+interacts with Errors and parsing/executing in a non-trivially-predictable way.
+
 Errors
    Presumably we have at least two separate kinds of errors: raw information
    and a unified `Diagnostic` struct and `DiagnosticKind` or something idk
@@ -23,3 +27,86 @@ Error recovery
 
    InvalidToken:
       Implement the hint in Token::find_keywords_in
+
+# AI section
+
+## Recommended order
+
+### 1. Make the lexer/parser boundary explicit
+
+Parsing needs both the token kind and the original source text. A small
+`Lexeme` type would make that relationship explicit:
+
+```rust
+struct Lexeme {
+    kind: Result<Token, InvalidToken>,
+    span: Span,
+}
+```
+
+The parser can use the span to recover the actual label or math symbol from
+the source string. Keep spans as byte ranges into one source for now. Add a
+path or source ID when file inclusion is implemented.
+
+### 2. Add a small token cursor
+
+Parser methods will be easier to read if they do not manipulate a raw
+iterator directly:
+
+```rust
+struct TokenStream {
+    // lexer output and current position
+}
+
+impl TokenStream {
+    fn peek(&self) -> Option<&Lexeme>;
+    fn bump(&mut self) -> Option<Lexeme>;
+    fn expect(&mut self, expected: Token) -> Result<Lexeme, ParseFailError>;
+}
+```
+
+This also gives the outer parser one place to coordinate recovery.
+
+### 3. Keep parsing separate from verification
+
+The parser should build syntactic statements. Declaration checks, scopes,
+`$f` consistency, and proof verification should belong to a later semantic
+phase. Parser errors should remain structured data, for example:
+
+```rust
+struct ParseFailError {
+    kind: ParseErrorKind,
+    span: Span,
+    expected: Vec<Token>,
+}
+```
+
+The choice of diagnostic-rendering crate can wait until the outer boundary is
+settled.
+
+### 4. Start with one narrow parser slice
+
+For example, parse:
+
+```text
+$c wff |- ( ) $.
+```
+
+Then add `$v`, `$d`, `$f`, and scopes incrementally. Do not begin with file
+loading, file inclusion, or full error recovery.
+
+### 5. Add malformed-input tests early
+
+Useful first cases are:
+
+- missing `$.`
+- unexpected `$}`
+- empty declarations
+- invalid tokens
+- comments around statements
+
+Once the basic parser works, add recovery tests for the context-appropriate
+tokens: `$)`, `$]`, `$}`, and `$.`. If a comment starts while recovering, try
+to consume its closing `$)` and report an additional error if it is missing.
+
+

@@ -20,23 +20,23 @@ use std::ops::Range;
 struct Span(Range<usize>);
 
 impl Span {
-    fn new(range: Range<usize>) -> Self {
+    const fn new(range: Range<usize>) -> Self {
         Self(range)
     }
 
-    fn as_range(&self) -> &Range<usize> {
+    const fn as_range(&self) -> &Range<usize> {
         &self.0
     }
 
-    fn into_range(self) -> Range<usize> {
+    const fn into_range(self) -> Range<usize> {
         self.0
     }
 
-    fn start(&self) -> usize {
+    const fn start(&self) -> usize {
         self.0.start
     }
 
-    fn end(&self) -> usize {
+    const fn end(&self) -> usize {
         self.0.end
     }
 
@@ -251,8 +251,13 @@ impl Token {
     }
 }
 
+/// Lex a source string.
+fn lex(source: &str) -> impl Iterator<Item = (Result<Token, InvalidToken>, Span)> {
+    Token::lexer(source).spanned().map(|(r, s)| (r, Span(s)))
+}
+
 #[cfg(test)]
-mod lexing_tests {
+mod tests {
     use super::*;
 
     #[test]
@@ -279,7 +284,7 @@ mod lexing_tests {
                 Ok(Token::Label),
                 Ok(Token::Label),
                 Ok(Token::Label),
-                Err(InvalidToken(String::from("！"), 17..20)),
+                Err(InvalidToken(String::from("！"), Span(17..20))),
                 Ok(Token::MathSymbol),
             ]
         );
