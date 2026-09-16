@@ -26,27 +26,30 @@ Error recovery
    This can fail, which becomes an additional error to print out.
 
    InvalidToken:
-      Implement the hint in Token::find_keywords_in
+      Implement the hint in TokenKind::find_keywords_in
 
 # AI section
 
 ## Recommended order
 
-### 1. Make the lexer/parser boundary explicit
+### 1. Make the lexer/parser boundary explicit (implemented)
 
 Parsing needs both the token kind and the original source text. A small
-`Lexeme` type would make that relationship explicit:
+`Token` type would make that relationship explicit:
+
+`Token` now stores the token kind, the original source slice, and its span:
 
 ```rust
-struct Lexeme {
-    kind: Result<Token, InvalidToken>,
+struct Token<'source> {
+    kind: Result<TokenKind, InvalidToken>,
+    slice: &'source str,
     span: Span,
 }
 ```
 
-The parser can use the span to recover the actual label or math symbol from
-the source string. Keep spans as byte ranges into one source for now. Add a
-path or source ID when file inclusion is implemented.
+The parser can use the slice or span to recover the actual label or math symbol
+from the source string. Keep spans as byte ranges into one source for now. Add
+a path or source ID when file inclusion is implemented.
 
 ### 2. Add a small token cursor
 
@@ -59,9 +62,9 @@ struct TokenStream {
 }
 
 impl TokenStream {
-    fn peek(&self) -> Option<&Lexeme>;
-    fn bump(&mut self) -> Option<Lexeme>;
-    fn expect(&mut self, expected: Token) -> Result<Lexeme, ParseFailError>;
+    fn peek(&self) -> Option<&Token<'_>>;
+    fn bump(&mut self) -> Option<Token<'_>>;
+    fn expect(&mut self, expected: TokenKind) -> Result<Token<'_>, ParseFailError>;
 }
 ```
 
@@ -77,7 +80,7 @@ phase. Parser errors should remain structured data, for example:
 struct ParseFailError {
     kind: ParseErrorKind,
     span: Span,
-    expected: Vec<Token>,
+    expected: Vec<TokenKind>,
 }
 ```
 
@@ -108,5 +111,28 @@ Useful first cases are:
 Once the basic parser works, add recovery tests for the context-appropriate
 tokens: `$)`, `$]`, `$}`, and `$.`. If a comment starts while recovering, try
 to consume its closing `$)` and report an additional error if it is missing.
+
+## Testing philosophy
+
+> Human note: This is low confidence.
+
+Use tests at the same boundaries as the implementation:
+
+- Lexer unit tests should cover token classification, byte spans, invalid
+    input, attached-keyword detection, and token compatibility. Test the lexer
+    contract rather than the internals of `logos`.
+- `TokenStream` tests should cover `peek`, `bump`, and `expect`, including
+    empty input, unexpected tokens, invalid tokens, end-of-input, and whether a
+    failed expectation consumes input.
+- Parser tests should use small source strings and compare the resulting
+    syntax structures. Keep each test focused on one grammar rule.
+- Error tests should assert the structured error kind, span, expected tokens,
+    and whether parsing continues or collects multiple errors.
+- Integration tests should cover public API behavior. `demo0.mm` becomes a
+    useful integration fixture once parsing exists; until then, a test with its
+    verification body commented out does not provide coverage.
+
+The current lexer tests are sufficient to begin `TokenStream`, but project
+level integration coverage will remain incomplete until the parser exists.
 
 

@@ -85,19 +85,20 @@ struct InvalidToken(String, Span);
 #[derive(Logos, Debug, PartialEq, Eq, Clone, Copy)]
 #[logos(error(InvalidToken, callback = |lex| InvalidToken(lex.slice().to_owned(), Span(lex.span()))))]
 #[logos(skip r"[[:space:]]+")] // Ignore ASCII whitespace
-/// A space separated unit of Metamath.
+/// A category of lexical unit in Metamath source text.
 ///
-/// # Warning
+/// All tokens / token kinds are ASCII.
+/// Whitespace is always skipped in the lexer, and is never part of a token.
 ///
-/// There exists lexical ambiguity:
-/// (`Token`) enum variants are accepted as representing themselves OR any more general variant.
+/// # Note
 ///
-/// In other words, a specific token is allowed to be parsed in a general category.
+/// Some variants are intentionally broad: a token kind may satisfy the requirements
+/// of a more general category through [`TokenKind::satisfies`].
 ///
-/// See [`satisfies`].
+/// The name of a variant is more specific than the possibilities for its semantic meaning.
 ///
-/// [`satisfies`]: Token::satisfies
-enum Token {
+/// [`TokenKind::satisfies`]: TokenKind::satisfies
+enum TokenKind {
     #[token("$(", priority = 5)]
     CommentStart,
 
@@ -174,8 +175,8 @@ enum Token {
     CommentPart,
 }
 
-impl Token {
-    /// Return an iterator over the keywords (the `$` [`Token`]s) in a string.
+impl TokenKind {
+    /// Return an iterator over the keywords (the `$` [`TokenKind`]s) in a string.
     ///
     /// # Why
     ///
@@ -191,7 +192,7 @@ impl Token {
     ///    = help: separate `$a` from the preceding text with whitespace
     /// ```
     ///
-    /// [`Token`]: Token
+    /// [`TokenKind`]: TokenKind
     fn find_keywords_in(s: &str) -> impl Iterator<Item = Span> {
         s.match_indices('$').filter_map(|(i, _)| {
             let next = *s.as_bytes().get(i + 1)?;
@@ -251,9 +252,28 @@ impl Token {
     }
 }
 
+#[derive(Debug, PartialEq)]
+/// A token occurrence together with its location in the source text.
+struct Token<'source> {
+    kind: Result<TokenKind, InvalidToken>,
+
+    /// The source text occupied by this token.
+    slice: &'source str,
+
+    /// The token's byte range in the source text.
+    span: Span,
+}
+
 /// Lex a source string.
-fn lex(source: &str) -> impl Iterator<Item = (Result<Token, InvalidToken>, Span)> {
-    Token::lexer(source).spanned().map(|(r, s)| (r, Span(s)))
+fn lex(source: &str) -> impl Iterator<Item = Token<'_>> {
+    let mut lexer = TokenKind::lexer(source);
+    std::iter::from_fn(move || {
+        Some(Token {
+            kind: lexer.next()?,
+            slice: lexer.slice(),
+            span: Span(lexer.span()),
+        })
+    })
 }
 
 #[cfg(test)]
@@ -263,15 +283,15 @@ mod tests {
     #[test]
     fn basic_lexing() {
         assert_eq!(
-            Token::lexer("$( hi! $. $(( ZU\n AAU Zap").collect::<Vec<_>>(),
+            TokenKind::lexer("$( hi! $. $(( ZU\n AAU Zap").collect::<Vec<_>>(),
             vec![
-                Ok(Token::CommentStart),                   // $(
-                Ok(Token::MathSymbol),                     // hi!
-                Ok(Token::ItemEnd),                        // $.
-                Ok(Token::CommentPart),                    // $((
-                Ok(Token::CompressedChunkLabelCompatible), // ZU
-                Ok(Token::CompressedChunkLabelCompatible), // AAU
-                Ok(Token::Label),                          // Zap
+                Ok(TokenKind::CommentStart),                   // $(
+                Ok(TokenKind::MathSymbol),                     // hi!
+                Ok(TokenKind::ItemEnd),                        // $.
+                Ok(TokenKind::CommentPart),                    // $((
+                Ok(TokenKind::CompressedChunkLabelCompatible), // ZU
+                Ok(TokenKind::CompressedChunkLabelCompatible), // AAU
+                Ok(TokenKind::Label),                          // Zap
             ]
         );
     }
@@ -279,14 +299,53 @@ mod tests {
     #[test]
     fn invalid_lex() {
         assert_eq!(
-            Token::lexer("miku miku biiiimu！ \n[...]").collect::<Vec<_>>(),
+            TokenKind::lexer("miku miku biiiimu！ \n[...]").collect::<Vec<_>>(),
             vec![
-                Ok(Token::Label),
-                Ok(Token::Label),
-                Ok(Token::Label),
+                Ok(TokenKind::Label),
+                Ok(TokenKind::Label),
+                Ok(TokenKind::Label),
                 Err(InvalidToken(String::from("！"), Span(17..20))),
-                Ok(Token::MathSymbol),
+                Ok(TokenKind::MathSymbol),
             ]
         );
+    }
+
+    #[test]
+    fn lex_includes_spans() {
+        assert_eq!(
+            lex("$c wff $.").collect::<Vec<_>>(),
+            vec![
+                Token {
+                    kind: Ok(TokenKind::ConstantDeclarationStart),
+                    slice: "$c",
+                    span: Span(0..2),
+                },
+                Token {
+                    kind: Ok(TokenKind::Label),
+                    slice: "wff",
+                    span: Span(3..6),
+                },
+                Token {
+                    kind: Ok(TokenKind::ItemEnd),
+                    slice: "$.",
+                    span: Span(7..9),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn finds_attached_keywords() {
+        assert_eq!(
+            TokenKind::find_keywords_in("foo$a bar").collect::<Vec<_>>(),
+            vec![Span(3..5)]
+        );
+    }
+
+    #[test]
+    fn token_compatibility_is_explicit() {
+        assert!(TokenKind::Label.satisfies(TokenKind::MathSymbol));
+        assert!(TokenKind::CompressedChunkLabelCompatible.satisfies(TokenKind::Label));
+        assert!(!TokenKind::CommentEnd.satisfies(TokenKind::CommentPart));
     }
 }
