@@ -5,4 +5,4 @@
 #![allow(dead_code)]
 
 // pub(crate) mod diag;
-mod parser;
+mod lexer;

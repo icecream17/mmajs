@@ -19,6 +19,66 @@ use std::ops::Range;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct Span(Range<usize>);
 
+impl Span {
+    fn new(range: Range<usize>) -> Self {
+        Self(range)
+    }
+
+    fn as_range(&self) -> &Range<usize> {
+        &self.0
+    }
+
+    fn into_range(self) -> Range<usize> {
+        self.0
+    }
+
+    fn start(&self) -> usize {
+        self.0.start
+    }
+
+    fn end(&self) -> usize {
+        self.0.end
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn contains(&self, index: usize) -> bool {
+        self.0.contains(&index)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl From<Range<usize>> for Span {
+    fn from(range: Range<usize>) -> Self {
+        Self(range)
+    }
+}
+
+impl From<Span> for Range<usize> {
+    fn from(span: Span) -> Self {
+        span.into_range()
+    }
+}
+
+impl AsRef<Range<usize>> for Span {
+    fn as_ref(&self) -> &Range<usize> {
+        self.as_range()
+    }
+}
+
+impl std::ops::Deref for Span {
+    type Target = Range<usize>;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_range()
+    }
+}
+
 #[derive(Default, Clone, PartialEq, Debug)]
 struct InvalidToken(String, Span);
 
@@ -115,6 +175,47 @@ enum Token {
 }
 
 impl Token {
+    /// Return an iterator over the keywords (the `$` [`Token`]s) in a string.
+    ///
+    /// # Why
+    ///
+    /// It would be useful to give a hint like so:
+    /// ```text
+    /// error: expected a statement
+    ///   --> file.mm:42:4
+    ///    |
+    /// 42 | foo$a bar
+    ///    |    ^^
+    ///    |
+    ///    = note: `$a` appears to be attached to another token
+    ///    = help: separate `$a` from the preceding text with whitespace
+    /// ```
+    ///
+    /// [`Token`]: Token
+    fn find_keywords_in(s: &str) -> impl Iterator<Item = Span> {
+        s.match_indices('$').filter_map(|(i, _)| {
+            let next = *s.as_bytes().get(i + 1)?;
+            matches!(
+                next,
+                b'(' | b')'
+                    | b'['
+                    | b']'
+                    | b'{'
+                    | b'}'
+                    | b'c'
+                    | b'v'
+                    | b'd'
+                    | b'f'
+                    | b'e'
+                    | b'a'
+                    | b'p'
+                    | b'='
+                    | b'.'
+            )
+            .then_some(Span(i..i + 2))
+        })
+    }
+
     /// Returns true if this token matches or can be interpreted/consumed as another token.
     fn satisfies(self, expected: Self) -> bool {
         self == expected

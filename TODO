@@ -1,0 +1,25 @@
+
+The next step is to figure out the structure and implementation of parsing.
+
+Errors
+   Presumably we have at least two separate kinds of errors: raw information
+   and a unified `Diagnostic` struct and `DiagnosticKind` or something idk
+   so that I can separate the decision of how exactly to present the error.
+
+   Since I don't know what crate I'm going to use yet.
+
+Error recovery
+   An outer method calls inner methods.
+   The outer method decides error recovery and overall result.
+   If multiple errors exist, they should all be tracked.
+
+   Inner methods simply `Result<Statement, ParseFailError>` or something,
+   they do not have the role of error recovery.
+
+   Recovery tokens: `$)`, `$]`, `$}` `$.`
+   Depending on the context, perhaps only some recovery tokens make sense.
+   If there's a `$(` maybe we try to consume the whole comment before recovering.
+   This can fail, which becomes an additional error to print out.
+
+   InvalidToken:
+      Implement the hint in Token::find_keywords_in
