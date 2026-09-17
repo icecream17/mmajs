@@ -1,17 +1,4 @@
-//! Parses Metamath databases.
-//!
-//! A database is an input file, which may have commands to include other input files.
-//! Each file is further parsed into scopes and statements.
-//!
-//! If [`Token`]s are like Words, {{`SyntaxProduction`}}s are like the various kinds of increasingly complex
-//! phrases, sentences, paragraphs, pages, chapters, sections, volumes, and arcs that make up the story
-//! that is a database.
-//!
-//! If there is a {{`FileInclusion`}}, the lexer will stop, and load the {{`SyntaxProduction`}}s
-//! of that file in-place. It is currently unspecified, so the filepath of the {{`FileInclusion`}}
-//! will be relative to whatever is convenient, probably the current-working-directory.
-//!
-//! [`Token`]: Token
+//! Converts source text into tokens.
 
 use logos::Logos;
 use std::ops::Range;

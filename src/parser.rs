@@ -1,3 +1,5 @@
+//! Parses text into statements.
+
 use std::iter::Peekable;
 
 use crate::lexer::{Token, TokenKind, Tokens, lex};
