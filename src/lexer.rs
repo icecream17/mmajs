@@ -7,36 +7,13 @@ use std::ops::Range;
 struct Span(Range<usize>);
 
 impl Span {
+    #[deprecated(since = "0.0.0", note = "Use `Span(...)` instead; it's shorter")]
     const fn new(range: Range<usize>) -> Self {
         Self(range)
     }
 
-    const fn as_range(&self) -> &Range<usize> {
-        &self.0
-    }
-
-    const fn into_range(self) -> Range<usize> {
-        self.0
-    }
-
-    const fn start(&self) -> usize {
-        self.0.start
-    }
-
-    const fn end(&self) -> usize {
-        self.0.end
-    }
-
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-
     fn contains(&self, index: usize) -> bool {
         self.0.contains(&index)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
 }
 
@@ -48,13 +25,13 @@ impl From<Range<usize>> for Span {
 
 impl From<Span> for Range<usize> {
     fn from(span: Span) -> Self {
-        span.into_range()
+        span.0
     }
 }
 
 impl AsRef<Range<usize>> for Span {
     fn as_ref(&self) -> &Range<usize> {
-        self.as_range()
+        &self.0
     }
 }
 
@@ -62,15 +39,15 @@ impl std::ops::Deref for Span {
     type Target = Range<usize>;
 
     fn deref(&self) -> &Self::Target {
-        self.as_range()
+        &self.0
     }
 }
 
 #[derive(Default, Clone, PartialEq, Debug)]
-pub(crate) struct InvalidToken(String, Span);
+pub(crate) struct InvalidToken<'source>(&'source str, Span);
 
-#[derive(Logos, Debug, PartialEq, Eq, Clone, Copy)]
-#[logos(error(InvalidToken, callback = |lex| InvalidToken(lex.slice().to_owned(), Span(lex.span()))))]
+#[derive(Logos, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
+#[logos(error(InvalidToken<'s>, callback = |lex| InvalidToken(lex.slice(), Span(lex.span()))))]
 #[logos(skip r"[[:space:]]+")] // Ignore ASCII whitespace
 /// A category of lexical unit in Metamath source text.
 ///
@@ -240,9 +217,9 @@ impl TokenKind {
 }
 
 #[derive(Debug, PartialEq)]
-/// A token occurrence together with its location in the source text.
+/// A valid token occurrence together with its location in the source text.
 pub(crate) struct Token<'source> {
-    kind: Result<TokenKind, InvalidToken>,
+    kind: TokenKind,
 
     /// The source text occupied by this token.
     slice: &'source str,
@@ -252,16 +229,16 @@ pub(crate) struct Token<'source> {
 }
 
 impl Token<'_> {
-    // pub(crate) fn kind(&self) -> &Result<TokenKind, InvalidToken> {
-    //     &self.kind
-    // }
+    pub(crate) const fn kind(&self) -> TokenKind {
+        self.kind
+    }
 
-    // pub(crate) fn span(&self) -> &Span {
+    // pub(crate) const fn span(&self) -> &Span {
     //     &self.span
     // }
 
     pub(crate) fn satisfies(&self, expected: TokenKind) -> bool {
-        self.kind.as_ref().is_ok_and(|k| k.satisfies(expected))
+        self.kind.satisfies(expected)
     }
 }
 
@@ -270,17 +247,38 @@ impl Token<'_> {
 /// The lazy token stream produced from a source string.
 pub(crate) struct Tokens<'source> {
     lexer: logos::Lexer<'source, TokenKind>,
+    invalid: Vec<InvalidToken<'source>>,
+}
+
+impl<'source> Tokens<'source> {
+    pub(crate) fn invalid(&self) -> &[InvalidToken<'source>] {
+        &self.invalid
+    }
+
+    pub(crate) fn take_invalid(self) -> Vec<InvalidToken<'source>> {
+        self.invalid
+    }
 }
 
 impl<'source> Iterator for Tokens<'source> {
     type Item = Token<'source>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(Token {
-            kind: self.lexer.next()?,
-            slice: self.lexer.slice(),
-            span: Span(self.lexer.span()),
-        })
+        loop {
+            let next = self.lexer.next()?;
+            match next {
+                Ok(kind) => {
+                    return Some(Token {
+                        kind,
+                        slice: self.lexer.slice(),
+                        span: Span(self.lexer.span()),
+                    });
+                }
+                Err(err) => {
+                    self.invalid.push(err);
+                }
+            }
+        }
     }
 }
 
@@ -288,6 +286,7 @@ impl<'source> Iterator for Tokens<'source> {
 pub(crate) fn lex(source: &str) -> Tokens<'_> {
     Tokens {
         lexer: TokenKind::lexer(source),
+        invalid: Vec::new(),
     }
 }
 
@@ -319,7 +318,7 @@ mod tests {
                 Ok(TokenKind::Label),
                 Ok(TokenKind::Label),
                 Ok(TokenKind::Label),
-                Err(InvalidToken(String::from("！"), Span(17..20))),
+                Err(InvalidToken("！", Span(17..20))),
                 Ok(TokenKind::MathSymbol),
             ]
         );
@@ -331,22 +330,55 @@ mod tests {
             lex("$c wff $.").collect::<Vec<_>>(),
             vec![
                 Token {
-                    kind: Ok(TokenKind::ConstantDeclarationStart),
+                    kind: TokenKind::ConstantDeclarationStart,
                     slice: "$c",
                     span: Span(0..2),
                 },
                 Token {
-                    kind: Ok(TokenKind::Label),
+                    kind: TokenKind::Label,
                     slice: "wff",
                     span: Span(3..6),
                 },
                 Token {
-                    kind: Ok(TokenKind::ItemEnd),
+                    kind: TokenKind::ItemEnd,
                     slice: "$.",
                     span: Span(7..9),
                 },
             ]
         );
+    }
+
+    #[test]
+    fn lex_collects_invalid_tokens_in_bucket() {
+        let mut tokens = lex("miku miku biiiimu！ \n[...]");
+
+        assert_eq!(
+            std::iter::from_fn(|| tokens.next()).collect::<Vec<_>>(),
+            vec![
+                Token {
+                    kind: TokenKind::Label,
+                    slice: "miku",
+                    span: Span(0..4),
+                },
+                Token {
+                    kind: TokenKind::Label,
+                    slice: "miku",
+                    span: Span(5..9),
+                },
+                Token {
+                    kind: TokenKind::Label,
+                    slice: "biiiimu",
+                    span: Span(10..17),
+                },
+                Token {
+                    kind: TokenKind::MathSymbol,
+                    slice: "[...]",
+                    span: Span(22..27),
+                },
+            ]
+        );
+
+        assert_eq!(tokens.invalid(), &[InvalidToken("！", Span(17..20))]);
     }
 
     #[test]
