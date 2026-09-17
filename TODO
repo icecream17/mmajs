@@ -51,7 +51,7 @@ The parser can use the slice or span to recover the actual label or math symbol
 from the source string. Keep spans as byte ranges into one source for now. Add
 a path or source ID when file inclusion is implemented.
 
-### 2. Add a small token cursor
+### 2. Add a small token cursor (implemented)
 
 Parser methods will be easier to read if they do not manipulate a raw
 iterator directly:

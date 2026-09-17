@@ -7,3 +7,4 @@
 
 // pub(crate) mod diag;
 mod lexer;
+mod parser;

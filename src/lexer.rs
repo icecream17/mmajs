@@ -80,7 +80,7 @@ impl std::ops::Deref for Span {
 }
 
 #[derive(Default, Clone, PartialEq, Debug)]
-struct InvalidToken(String, Span);
+pub(crate) struct InvalidToken(String, Span);
 
 #[derive(Logos, Debug, PartialEq, Eq, Clone, Copy)]
 #[logos(error(InvalidToken, callback = |lex| InvalidToken(lex.slice().to_owned(), Span(lex.span()))))]
@@ -98,7 +98,7 @@ struct InvalidToken(String, Span);
 /// The name of a variant is more specific than the possibilities for its semantic meaning.
 ///
 /// [`TokenKind::satisfies`]: TokenKind::satisfies
-enum TokenKind {
+pub(crate) enum TokenKind {
     #[token("$(", priority = 5)]
     CommentStart,
 
@@ -254,7 +254,7 @@ impl TokenKind {
 
 #[derive(Debug, PartialEq)]
 /// A token occurrence together with its location in the source text.
-struct Token<'source> {
+pub(crate) struct Token<'source> {
     kind: Result<TokenKind, InvalidToken>,
 
     /// The source text occupied by this token.
@@ -264,16 +264,44 @@ struct Token<'source> {
     span: Span,
 }
 
-/// Lex a source string.
-fn lex(source: &str) -> impl Iterator<Item = Token<'_>> {
-    let mut lexer = TokenKind::lexer(source);
-    std::iter::from_fn(move || {
+impl Token<'_> {
+    // pub(crate) fn kind(&self) -> &Result<TokenKind, InvalidToken> {
+    //     &self.kind
+    // }
+
+    // pub(crate) fn span(&self) -> &Span {
+    //     &self.span
+    // }
+
+    pub(crate) fn satisfies(&self, expected: TokenKind) -> bool {
+        self.kind.as_ref().is_ok_and(|k| k.satisfies(expected))
+    }
+}
+
+// This exists so that `lex` returns an explicit type instead of an opaque one,
+// which would cause `TokenStream` to have an unwieldy generic <I: Iterator<...>>.
+/// The lazy token stream produced from a source string.
+pub(crate) struct Tokens<'source> {
+    lexer: logos::Lexer<'source, TokenKind>,
+}
+
+impl<'source> Iterator for Tokens<'source> {
+    type Item = Token<'source>;
+
+    fn next(&mut self) -> Option<Self::Item> {
         Some(Token {
-            kind: lexer.next()?,
-            slice: lexer.slice(),
-            span: Span(lexer.span()),
+            kind: self.lexer.next()?,
+            slice: self.lexer.slice(),
+            span: Span(self.lexer.span()),
         })
-    })
+    }
+}
+
+/// Lex a source string.
+pub(crate) fn lex(source: &str) -> Tokens<'_> {
+    Tokens {
+        lexer: TokenKind::lexer(source),
+    }
 }
 
 #[cfg(test)]
@@ -311,7 +339,7 @@ mod tests {
     }
 
     #[test]
-    fn lex_includes_spans() {
+    fn lex_includes_slices_and_spans() {
         assert_eq!(
             lex("$c wff $.").collect::<Vec<_>>(),
             vec![
