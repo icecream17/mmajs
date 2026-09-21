@@ -43,6 +43,9 @@ impl std::ops::Deref for Span {
     }
 }
 
+/// This generally represents an invalid character.
+///
+/// The only valid characters are printable ASCII, `\t`, `\r`, `\n`, or `\f`.
 #[derive(Default, Clone, PartialEq, Debug)]
 pub(crate) struct InvalidToken<'source>(&'source str, Span);
 

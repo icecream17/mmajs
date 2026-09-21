@@ -1,13 +1,16 @@
 //! Parses text into statements.
 
-use std::iter::Peekable;
+// https://github.com/rust-lang/rust/blob/2699985190ef9e02089bb0f611c7ae0913085cc6/library/core/src/iter/adapters/peekable.rs
+//
+// The following are adapted from rustlib's core/src/iter/adapters/peekable.rs:
+// - TokenStream::peeked and its comment
+// - TokenStream::peek
+// - TokenStream::bump
+//
+// which is Copyright (c) The Rust Project Contributors.
+// Licensed under either the MIT or Apache-2.0 license, at your option.
 
-use crate::lexer::{Token, TokenKind, Tokens, has_duplicate, lex};
-
-struct TokenStream<'source> {
-    // source: &'source str,
-    lexer: Peekable<Tokens<'source>>,
-}
+use crate::lexer::{InvalidToken, Token, TokenKind, Tokens, has_duplicate, lex};
 
 // Since this is only used internally in a limited and specific way,
 // it's ok to break the 0, 1, or infinity rule for speed and clarity.
@@ -22,20 +25,41 @@ struct UnexpectedTokenError<'source, 'b> {
     expected: OneOrTwoOf<TokenKind>,
 }
 
+struct TokenStream<'source> {
+    // source: &'source str,
+    lexer: Tokens<'source>,
+
+    #[expect(clippy::option_option, reason = "Copied from rustc")]
+    /// Remember a peeked value, even if it was None.
+    peeked: Option<Option<Token<'source>>>,
+}
+
 impl<'source> TokenStream<'source> {
     fn new(source: &'source str) -> Self {
         TokenStream {
             // source,
-            lexer: lex(source).peekable(),
+            lexer: lex(source),
+            peeked: None,
         }
     }
 
+    // Unfortunately, we cannot use [`Iterator::peekable`] because we need
+    // access to the collected [`InvalidToken`]s from [`Tokens::take_invalid`].
+    //
+    // So the methods come **copied from rust source** (see top of file for license).
+    #[inline]
     fn peek(&mut self) -> Option<&Token<'source>> {
-        self.lexer.peek()
+        let iter = &mut self.lexer;
+
+        self.peeked.get_or_insert_with(|| iter.next()).as_ref()
     }
 
-    fn bump(&mut self) -> Option<Token<'_>> {
-        self.lexer.next()
+    #[inline]
+    fn bump(&mut self) -> Option<Token<'source>> {
+        match self.peeked.take() {
+            Some(v) => v,
+            None => self.lexer.next(),
+        }
     }
 
     /// Consume a token only when it satisfies the expected [`TokenKind`],
@@ -44,12 +68,13 @@ impl<'source> TokenStream<'source> {
         &'b mut self,
         expected: TokenKind,
     ) -> Result<Token<'source>, UnexpectedTokenError<'source, 'b>> {
-        self.lexer
-            .next_if(|v| v.satisfies(expected))
-            .ok_or_else(|| UnexpectedTokenError {
+        match self.bump() {
+            Some(v) if v.satisfies(expected) => Ok(v),
+            _ => Err(UnexpectedTokenError {
                 received: self.peek(),
                 expected: OneOrTwoOf::One(expected),
-            })
+            }),
+        }
     }
 
     fn expect_either(
@@ -57,12 +82,17 @@ impl<'source> TokenStream<'source> {
         one: TokenKind,
         two: TokenKind,
     ) -> Result<Token<'_>, UnexpectedTokenError<'_, '_>> {
-        self.lexer
-            .next_if(|v| v.satisfies(one) || v.satisfies(two))
-            .ok_or_else(|| UnexpectedTokenError {
+        match self.bump() {
+            Some(v) if v.satisfies(one) || v.satisfies(two) => Ok(v),
+            _ => Err(UnexpectedTokenError {
                 received: self.peek(),
                 expected: OneOrTwoOf::Two(one, two),
-            })
+            }),
+        }
+    }
+
+    fn finish(self) -> Vec<InvalidToken<'source>> {
+        self.lexer.take_invalid()
     }
 }
 
