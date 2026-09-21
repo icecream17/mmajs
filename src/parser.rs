@@ -2,7 +2,7 @@
 
 use std::iter::Peekable;
 
-use crate::lexer::{Token, TokenKind, Tokens, lex};
+use crate::lexer::{Token, TokenKind, Tokens, has_duplicate, lex};
 
 struct TokenStream<'source> {
     // source: &'source str,
@@ -148,21 +148,16 @@ impl<'source> StatementKind {
     /// Verify data and construct a `Statement`.
     fn finalize(
         self,
-        mut data: Vec<Token<'source>>,
+        data: Vec<Token<'source>>,
     ) -> Result<Statement<'source>, InitializeStatementError<'source>> {
         match self {
             StatementKind::ConstantDeclaration => {
                 if data.is_empty() {
                     Err(InitializeStatementError::EmptyConstantDeclaration)
+                } else if has_duplicate(data.iter().map(Token::kind)) {
+                    Err(InitializeStatementError::DuplicateConstantDeclaration(data))
                 } else {
-                    data.sort_unstable_by_key(Token::kind);
-                    let len = data.len();
-                    data.dedup_by_key(|token| token.kind());
-                    if data.len() < len {
-                        Err(InitializeStatementError::DuplicateConstantDeclaration(data))
-                    } else {
-                        Ok(Statement::ConstantDeclaration(data))
-                    }
+                    Ok(Statement::ConstantDeclaration(data))
                 }
             }
         }

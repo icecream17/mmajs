@@ -216,6 +216,62 @@ impl TokenKind {
     }
 }
 
+#[cfg(target_pointer_width = "16")]
+type InternalSafeSize = u32;
+
+#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+type InternalSafeSize = usize;
+
+const SAFE_ZERO: InternalSafeSize = 0;
+const SAFE_ONE: InternalSafeSize = 1;
+
+impl From<TokenKind> for InternalSafeSize {
+    fn from(value: TokenKind) -> Self {
+        match value {
+            TokenKind::CommentStart => 0,
+            TokenKind::CommentEnd => 1,
+            TokenKind::FileInclusionStart => 2,
+            TokenKind::FileInclusionEnd => 3,
+            TokenKind::ScopeStart => 4,
+            TokenKind::ScopeEnd => 5,
+            TokenKind::ConstantDeclarationStart => 6,
+            TokenKind::VariableDeclarationStart => 7,
+            TokenKind::DvConditionStart => 8,
+            TokenKind::FloatingHypothesisStart => 9,
+            TokenKind::EssentialHypothesisStart => 10,
+            TokenKind::AxiomStart => 11,
+            TokenKind::ProofStart => 12,
+            TokenKind::ProofDetailsStart => 13,
+            TokenKind::ItemEnd => 14,
+            TokenKind::CompressedChunkLabelCompatible => 15,
+            TokenKind::CompressedChunkLabelIncompatible => 16,
+            TokenKind::Label => 17,
+            TokenKind::MathSymbol => 18,
+            TokenKind::CommentPart => 19,
+        }
+    }
+}
+
+/// Checks if an iterator sends two or more of the same [`TokenKind`].
+///
+/// This is amazingly an O(n) implementation instead of an O(n log n + n) or an
+/// O(n(n+1)/2) implementation, but since usually n < 10, this microoptimization
+/// is mostly useless.
+pub(crate) fn has_duplicate<T: Iterator<Item = TokenKind>>(kinds: T) -> bool {
+    let mut seen = SAFE_ZERO;
+    for kind in kinds {
+        let bit = SAFE_ONE << InternalSafeSize::from(kind);
+
+        if seen & bit != 0 {
+            return true;
+        }
+
+        seen |= bit;
+    }
+
+    false
+}
+
 #[derive(Debug, PartialEq)]
 /// A valid token occurrence together with its location in the source text.
 pub(crate) struct Token<'source> {
