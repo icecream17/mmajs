@@ -110,6 +110,12 @@ pub(crate) enum TokenKind {
     #[token("$=", priority = 5)]
     ProofDetailsStart,
 
+    #[token("(", priority = 5)]
+    ProofLabelListStart,
+
+    #[token(")", priority = 5)]
+    ProofLabelListEnd,
+
     #[token("$.", priority = 5)]
     ItemEnd,
 
@@ -203,6 +209,8 @@ impl TokenKind {
                         | Self::AxiomStart
                         | Self::ProofStart
                         | Self::ProofDetailsStart
+                        | Self::ProofLabelListStart
+                        | Self::ProofLabelListEnd
                         | Self::ItemEnd
                         | Self::CompressedChunkLabelCompatible
                         | Self::CompressedChunkLabelIncompatible
@@ -210,7 +218,9 @@ impl TokenKind {
                         | Self::MathSymbol,
                     Self::CommentPart // Everything except CommentEnd
                 ) | (
-                    Self::CompressedChunkLabelCompatible
+                    Self::ProofLabelListStart
+                        | Self::ProofLabelListEnd
+                        | Self::CompressedChunkLabelCompatible
                         | Self::CompressedChunkLabelIncompatible
                         | Self::Label,
                     Self::MathSymbol
@@ -245,12 +255,14 @@ impl From<TokenKind> for InternalSafeSize {
             TokenKind::AxiomStart => 11,
             TokenKind::ProofStart => 12,
             TokenKind::ProofDetailsStart => 13,
-            TokenKind::ItemEnd => 14,
-            TokenKind::CompressedChunkLabelCompatible => 15,
-            TokenKind::CompressedChunkLabelIncompatible => 16,
-            TokenKind::Label => 17,
-            TokenKind::MathSymbol => 18,
-            TokenKind::CommentPart => 19,
+            TokenKind::ProofLabelListStart => 14,
+            TokenKind::ProofLabelListEnd => 15,
+            TokenKind::ItemEnd => 16,
+            TokenKind::CompressedChunkLabelCompatible => 17,
+            TokenKind::CompressedChunkLabelIncompatible => 18,
+            TokenKind::Label => 19,
+            TokenKind::MathSymbol => 20,
+            TokenKind::CommentPart => 21,
         }
     }
 }
@@ -356,15 +368,16 @@ mod tests {
     #[test]
     fn basic_lexing() {
         assert_eq!(
-            TokenKind::lexer("$( hi! $. $(( ZU\n AAU Zap").collect::<Vec<_>>(),
+            TokenKind::lexer("$( hi! $. $(( OZU\n ? Zap ))").collect::<Vec<_>>(),
             vec![
-                Ok(TokenKind::CommentStart),                   // $(
-                Ok(TokenKind::MathSymbol),                     // hi!
-                Ok(TokenKind::ItemEnd),                        // $.
-                Ok(TokenKind::CommentPart),                    // $((
-                Ok(TokenKind::CompressedChunkLabelCompatible), // ZU
-                Ok(TokenKind::CompressedChunkLabelCompatible), // AAU
-                Ok(TokenKind::Label),                          // Zap
+                Ok(TokenKind::CommentStart),                     // $(
+                Ok(TokenKind::MathSymbol),                       // hi!
+                Ok(TokenKind::ItemEnd),                          // $.
+                Ok(TokenKind::CommentPart),                      // $((
+                Ok(TokenKind::CompressedChunkLabelCompatible),   // OZU
+                Ok(TokenKind::CompressedChunkLabelIncompatible), // ?
+                Ok(TokenKind::Label),                            // Zap
+                Ok(TokenKind::MathSymbol),                       // ))
             ]
         );
     }
