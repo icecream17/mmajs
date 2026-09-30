@@ -217,9 +217,13 @@ impl ParserState {
     /// - most statements: Can be `Ok(ParserState::Global)` or `Ok(ParserState::Scope)`.
     ///     - `ParserState::Scope` is a special case for this!
     /// - [`TokenKind::Comment`]: Can be anything except the `FileInclusion` ones.
-    fn next<'source>(
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Keep the parser state transition table together"
+    )]
+    const fn next(
         self,
-        token: &Token<'source>,
+        token: &Token<'_>,
         stmt_return: Result<ParserState, FailedParserState>,
     ) -> Result<ParserState, FailedParserState> {
         match self {
@@ -249,16 +253,19 @@ impl ParserState {
                     Ok(ParserState::Label)
                 }
             },
+            // Largely copied from the [`ParserState::Global`] arm
             ParserState::Scope => match token.kind() {
                 TokenKind::CommentStart => Ok(ParserState::Comment),
                 TokenKind::CommentEnd | TokenKind::FileInclusionEnd | TokenKind::ItemEnd => {
                     Err(FailedParserState::EndStatement)
                 }
+                // Different from [`ParserState::Global`]:
                 TokenKind::FileInclusionStart | TokenKind::ConstantDeclarationStart => {
                     Err(FailedParserState::InvalidLocal)
                 }
                 TokenKind::ScopeStart => Ok(ParserState::Scope),
                 TokenKind::ScopeEnd => stmt_return,
+                // ^ and v -- Different from [`ParserState::Global`]
                 TokenKind::VariableDeclarationStart | TokenKind::DvConditionStart => {
                     Ok(ParserState::MathSymbol)
                 }
