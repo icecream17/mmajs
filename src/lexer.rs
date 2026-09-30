@@ -263,7 +263,7 @@ impl From<TokenKind> for InternalSafeSize {
             TokenKind::ProofDetailsStart => 13,
             TokenKind::ProofLabelListStart => 14,
             TokenKind::ProofLabelListEnd => 15,
-            TokenKind::QuestionMark => 16
+            TokenKind::QuestionMark => 16,
             TokenKind::ItemEnd => 17,
             TokenKind::CompressedChunkLabelCompatible => 18,
             TokenKind::CompressedChunkLabelIncompatible => 19,

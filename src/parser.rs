@@ -225,9 +225,9 @@ impl ParserState {
         match self {
             ParserState::Global => match token.kind() {
                 TokenKind::CommentStart => Ok(ParserState::Comment),
-                TokenKind::CommentEnd
-                | TokenKind::FileInclusionEnd
-                | TokenKind::ItemEnd => Err(FailedParserState::EndStatement),
+                TokenKind::CommentEnd | TokenKind::FileInclusionEnd | TokenKind::ItemEnd => {
+                    Err(FailedParserState::EndStatement)
+                }
                 TokenKind::FileInclusionStart => Ok(ParserState::FileInclusion),
                 TokenKind::ScopeStart => Ok(ParserState::Scope),
                 TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
@@ -251,9 +251,9 @@ impl ParserState {
             },
             ParserState::Scope => match token.kind() {
                 TokenKind::CommentStart => Ok(ParserState::Comment),
-                TokenKind::CommentEnd
-                | TokenKind::FileInclusionEnd
-                | TokenKind::ItemEnd => Err(FailedParserState::EndStatement),
+                TokenKind::CommentEnd | TokenKind::FileInclusionEnd | TokenKind::ItemEnd => {
+                    Err(FailedParserState::EndStatement)
+                }
                 TokenKind::FileInclusionStart | TokenKind::ConstantDeclarationStart => {
                     Err(FailedParserState::InvalidLocal)
                 }
@@ -301,15 +301,17 @@ impl ParserState {
             },
             ParserState::Label => match token.kind() {
                 TokenKind::CommentStart => Ok(ParserState::Comment),
-                TokenKind::CommentEnd
-                | TokenKind::FileInclusionEnd
-                | TokenKind::ItemEnd => Err(FailedParserState::EndStatement),
+                TokenKind::CommentEnd | TokenKind::FileInclusionEnd | TokenKind::ItemEnd => {
+                    Err(FailedParserState::EndStatement)
+                }
                 TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
                 TokenKind::FloatingHypothesisStart
                 | TokenKind::EssentialHypothesisStart
                 | TokenKind::AxiomStart => Ok(ParserState::MathSymbol),
                 TokenKind::ProofStart => Ok(ParserState::ProofMathSymbol),
-                TokenKind::FileInclusionStart => Err(FailedParserState::InvalidLabelFileInclusion),
+                TokenKind::FileInclusionStart => {
+                    Err(FailedParserState::InvalidLabelFileInclusionStart)
+                }
                 TokenKind::ScopeStart => Err(FailedParserState::InvalidLabelScopeStart),
                 _ => Err(FailedParserState::Statement),
             },
@@ -342,7 +344,7 @@ impl ParserState {
             },
             ParserState::ProofDetailsStart => match token.kind() {
                 TokenKind::CommentStart => Ok(ParserState::Comment),
-                TokenKind::ProofLabelListStart => Ok(ParserState::ProofLabelList),
+                TokenKind::ProofLabelListStart => Ok(ParserState::CompressedProofLabelList),
                 TokenKind::CompressedChunkLabelCompatible
                 | TokenKind::QuestionMark
                 | TokenKind::Label => Ok(ParserState::UncompressedProof),
