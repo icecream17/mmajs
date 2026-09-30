@@ -231,6 +231,7 @@ impl TokenKind {
                         | Self::Label,
                     Self::MathSymbol
                 ) | (Self::CompressedChunkLabelCompatible, Self::Label)
+                    | (Self::QuestionMark, Self::CompressedChunkLabelIncompatible)
             )
     }
 }
