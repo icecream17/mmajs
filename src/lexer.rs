@@ -116,6 +116,10 @@ pub(crate) enum TokenKind {
     #[token(")", priority = 5)]
     ProofLabelListEnd,
 
+    /// An uncompressed proof placeholder, compressed proof placeholder, or [`MathSymbol`], etc.
+    #[token("?", priority = 5)]
+    QuestionMark,
+
     #[token("$.", priority = 5)]
     ItemEnd,
 
@@ -211,6 +215,7 @@ impl TokenKind {
                         | Self::ProofDetailsStart
                         | Self::ProofLabelListStart
                         | Self::ProofLabelListEnd
+                        | Self::QuestionMark
                         | Self::ItemEnd
                         | Self::CompressedChunkLabelCompatible
                         | Self::CompressedChunkLabelIncompatible
@@ -220,6 +225,7 @@ impl TokenKind {
                 ) | (
                     Self::ProofLabelListStart
                         | Self::ProofLabelListEnd
+                        | Self::QuestionMark
                         | Self::CompressedChunkLabelCompatible
                         | Self::CompressedChunkLabelIncompatible
                         | Self::Label,
@@ -257,12 +263,13 @@ impl From<TokenKind> for InternalSafeSize {
             TokenKind::ProofDetailsStart => 13,
             TokenKind::ProofLabelListStart => 14,
             TokenKind::ProofLabelListEnd => 15,
-            TokenKind::ItemEnd => 16,
-            TokenKind::CompressedChunkLabelCompatible => 17,
-            TokenKind::CompressedChunkLabelIncompatible => 18,
-            TokenKind::Label => 19,
-            TokenKind::MathSymbol => 20,
-            TokenKind::CommentPart => 21,
+            TokenKind::QuestionMark => 16
+            TokenKind::ItemEnd => 17,
+            TokenKind::CompressedChunkLabelCompatible => 18,
+            TokenKind::CompressedChunkLabelIncompatible => 19,
+            TokenKind::Label => 20,
+            TokenKind::MathSymbol => 21,
+            TokenKind::CommentPart => 22,
         }
     }
 }
@@ -370,14 +377,14 @@ mod tests {
         assert_eq!(
             TokenKind::lexer("$( hi! $. $(( OZU\n ? Zap ))").collect::<Vec<_>>(),
             vec![
-                Ok(TokenKind::CommentStart),                     // $(
-                Ok(TokenKind::MathSymbol),                       // hi!
-                Ok(TokenKind::ItemEnd),                          // $.
-                Ok(TokenKind::CommentPart),                      // $((
-                Ok(TokenKind::CompressedChunkLabelCompatible),   // OZU
-                Ok(TokenKind::CompressedChunkLabelIncompatible), // ?
-                Ok(TokenKind::Label),                            // Zap
-                Ok(TokenKind::MathSymbol),                       // ))
+                Ok(TokenKind::CommentStart),                   // $(
+                Ok(TokenKind::MathSymbol),                     // hi!
+                Ok(TokenKind::ItemEnd),                        // $.
+                Ok(TokenKind::CommentPart),                    // $((
+                Ok(TokenKind::CompressedChunkLabelCompatible), // OZU
+                Ok(TokenKind::QuestionMark),                   // ?
+                Ok(TokenKind::Label),                          // Zap
+                Ok(TokenKind::MathSymbol),                     // ))
             ]
         );
     }
