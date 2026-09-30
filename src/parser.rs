@@ -136,25 +136,26 @@ enum ParserState {
     Scope,
 
     /// We are in a comment.
-    ///
-    /// The `ParserContext` will note which `ParserState` to return to.
     Comment,
 
-    /// We are in a file inclusion
+    /// We are in a file inclusion, expecting a file name.
     FileInclusion,
+
+    /// We are expecting the end of a file inclusion.
+    FileInclusionEnd,
 
     // Both `CommentDeclaration` and `FileInclusion`s do not use labels so
     // we don't have to split this.
     /// We have just read a label and are expecting some keyword (`$` token).
     Label,
 
-    /// We are reading a bunch of [`MathSymbol`]s
+    /// We are reading a bunch of [`MathSymbol`]s.
     MathSymbol,
 
     /// This is [`ParserState::MathSymbol`] but the ending token is `$=`
     ProofMathSymbol,
 
-    /// We don't know if this is an uncompressed or compressed proof
+    /// We don't know if this is an uncompressed or compressed proof.
     ProofDetailsStart,
 
     UncompressedProof,
@@ -162,6 +163,225 @@ enum ParserState {
     CompressedProofLabelList,
 
     CompressedProofChunks,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+enum FailedParserState {
+    /// Unexpected `ScopeEnd`.
+    /// This has priority and usually the consequence of ending a scope, if any.
+    ///
+    /// This is because it's much more likely that someone forgot to complete a statement:
+    /// > `${ stuff $a |- uh oh! $}`
+    ///
+    /// ...than someone has a complete statement which is accidentally interrupted by a scope:
+    /// > `stuff $a |- uh $} oh! $.`
+    ///
+    /// Both kinds of errors can cause many future false positives if interpreted incorrectly.
+    /// So this is a special case:
+    /// - If the scope start and end tokens have the same indentation, interpret as the first.
+    /// - Otherwise, interpret as the second.
+    ScopeEnd,
+
+    /// Unexpected token within a file inclusion. Can recover upon `$]` et al.
+    FileInclusion,
+
+    /// Unexpected token. Can recover upon `$.` et al.
+    Statement,
+
+    /// Unexpected end statement token.
+    /// Immediately recovers but exists for better errors.
+    EndStatement,
+
+    /// A constant declaration or file inclusion must be global.
+    /// Immediately recovers but exists for better errors.
+    InvalidLocal,
+
+    /// A statement started without a label.
+    /// Immediately recovers but exists for better errors.
+    Label,
+
+    /// `Label` was followed by `FileInclusionStart`.
+    InvalidLabelFileInclusionStart,
+
+    /// `Label` was followed by `ScopeStart`.
+    InvalidLabelScopeStart,
+}
+
+impl ParserState {
+    /// Gives the next state.
+    ///
+    /// # `stmt_return`
+    ///
+    /// The state to return to upon this state(ment) finishing.
+    ///
+    /// - most statements: Can be `Ok(ParserState::Global)` or `Ok(ParserState::Scope)`.
+    ///     - `ParserState::Scope` is a special case for this!
+    /// - [`TokenKind::Comment`]: Can be anything except the `FileInclusion` ones.
+    fn next<'source>(
+        self,
+        token: &Token<'source>,
+        stmt_return: Result<ParserState, FailedParserState>,
+    ) -> Result<ParserState, FailedParserState> {
+        match self {
+            ParserState::Global => match token.kind() {
+                TokenKind::CommentStart => Ok(ParserState::Comment),
+                TokenKind::CommentEnd
+                | TokenKind::FileInclusionEnd
+                | TokenKind::ItemEnd => Err(FailedParserState::EndStatement),
+                TokenKind::FileInclusionStart => Ok(ParserState::FileInclusion),
+                TokenKind::ScopeStart => Ok(ParserState::Scope),
+                TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
+                TokenKind::ConstantDeclarationStart
+                | TokenKind::VariableDeclarationStart
+                | TokenKind::DvConditionStart => Ok(ParserState::MathSymbol),
+                TokenKind::FloatingHypothesisStart
+                | TokenKind::EssentialHypothesisStart
+                | TokenKind::AxiomStart
+                | TokenKind::ProofStart => Err(FailedParserState::Label),
+                TokenKind::ProofDetailsStart
+                | TokenKind::ProofLabelListStart
+                | TokenKind::ProofLabelListEnd
+                | TokenKind::QuestionMark
+                | TokenKind::CompressedChunkLabelIncompatible
+                | TokenKind::MathSymbol
+                | TokenKind::CommentPart => Err(FailedParserState::Statement),
+                TokenKind::CompressedChunkLabelCompatible | TokenKind::Label => {
+                    Ok(ParserState::Label)
+                }
+            },
+            ParserState::Scope => match token.kind() {
+                TokenKind::CommentStart => Ok(ParserState::Comment),
+                TokenKind::CommentEnd
+                | TokenKind::FileInclusionEnd
+                | TokenKind::ItemEnd => Err(FailedParserState::EndStatement),
+                TokenKind::FileInclusionStart | TokenKind::ConstantDeclarationStart => {
+                    Err(FailedParserState::InvalidLocal)
+                }
+                TokenKind::ScopeStart => Ok(ParserState::Scope),
+                TokenKind::ScopeEnd => stmt_return,
+                TokenKind::VariableDeclarationStart | TokenKind::DvConditionStart => {
+                    Ok(ParserState::MathSymbol)
+                }
+                TokenKind::FloatingHypothesisStart
+                | TokenKind::EssentialHypothesisStart
+                | TokenKind::AxiomStart
+                | TokenKind::ProofStart => Err(FailedParserState::Label),
+                TokenKind::ProofDetailsStart
+                | TokenKind::ProofLabelListStart
+                | TokenKind::ProofLabelListEnd
+                | TokenKind::QuestionMark
+                | TokenKind::CompressedChunkLabelIncompatible
+                | TokenKind::MathSymbol
+                | TokenKind::CommentPart => Err(FailedParserState::Statement),
+                TokenKind::CompressedChunkLabelCompatible | TokenKind::Label => {
+                    Ok(ParserState::Label)
+                }
+            },
+            ParserState::Comment => match token.kind() {
+                TokenKind::CommentEnd => stmt_return,
+                _ => Ok(ParserState::Comment),
+            },
+            ParserState::FileInclusion => match token.kind() {
+                TokenKind::ProofLabelListStart
+                | TokenKind::ProofLabelListEnd
+                | TokenKind::QuestionMark
+                | TokenKind::CompressedChunkLabelCompatible
+                | TokenKind::CompressedChunkLabelIncompatible
+                | TokenKind::Label
+                | TokenKind::MathSymbol => Ok(ParserState::FileInclusionEnd),
+                TokenKind::ScopeEnd | TokenKind::FileInclusionEnd => {
+                    Err(FailedParserState::ScopeEnd)
+                }
+                _ => Err(FailedParserState::FileInclusion),
+            },
+            ParserState::FileInclusionEnd => match token.kind() {
+                TokenKind::FileInclusionEnd => stmt_return,
+                TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
+                _ => Err(FailedParserState::FileInclusion),
+            },
+            ParserState::Label => match token.kind() {
+                TokenKind::CommentStart => Ok(ParserState::Comment),
+                TokenKind::CommentEnd
+                | TokenKind::FileInclusionEnd
+                | TokenKind::ItemEnd => Err(FailedParserState::EndStatement),
+                TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
+                TokenKind::FloatingHypothesisStart
+                | TokenKind::EssentialHypothesisStart
+                | TokenKind::AxiomStart => Ok(ParserState::MathSymbol),
+                TokenKind::ProofStart => Ok(ParserState::ProofMathSymbol),
+                TokenKind::FileInclusionStart => Err(FailedParserState::InvalidLabelFileInclusion),
+                TokenKind::ScopeStart => Err(FailedParserState::InvalidLabelScopeStart),
+                _ => Err(FailedParserState::Statement),
+            },
+            ParserState::MathSymbol => match token.kind() {
+                TokenKind::CommentStart => Ok(ParserState::Comment),
+                TokenKind::ItemEnd => stmt_return,
+                TokenKind::ProofLabelListStart
+                | TokenKind::ProofLabelListEnd
+                | TokenKind::QuestionMark
+                | TokenKind::CompressedChunkLabelCompatible
+                | TokenKind::CompressedChunkLabelIncompatible
+                | TokenKind::Label
+                | TokenKind::MathSymbol => Ok(ParserState::MathSymbol),
+                TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
+                _ => Err(FailedParserState::Statement),
+            },
+            ParserState::ProofMathSymbol => match token.kind() {
+                TokenKind::CommentStart => Ok(ParserState::Comment),
+                TokenKind::ProofDetailsStart => Ok(ParserState::ProofDetailsStart),
+                TokenKind::ProofLabelListStart
+                | TokenKind::ProofLabelListEnd
+                | TokenKind::QuestionMark
+                | TokenKind::CompressedChunkLabelCompatible
+                | TokenKind::CompressedChunkLabelIncompatible
+                | TokenKind::Label
+                | TokenKind::MathSymbol => Ok(ParserState::ProofMathSymbol),
+                TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
+                TokenKind::ItemEnd => Err(FailedParserState::EndStatement),
+                _ => Err(FailedParserState::Statement),
+            },
+            ParserState::ProofDetailsStart => match token.kind() {
+                TokenKind::CommentStart => Ok(ParserState::Comment),
+                TokenKind::ProofLabelListStart => Ok(ParserState::ProofLabelList),
+                TokenKind::CompressedChunkLabelCompatible
+                | TokenKind::QuestionMark
+                | TokenKind::Label => Ok(ParserState::UncompressedProof),
+                TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
+                TokenKind::ItemEnd => Err(FailedParserState::EndStatement),
+                _ => Err(FailedParserState::Statement),
+            },
+            ParserState::UncompressedProof => match token.kind() {
+                TokenKind::CommentStart => Ok(ParserState::Comment),
+                TokenKind::ItemEnd => stmt_return,
+                TokenKind::CompressedChunkLabelCompatible
+                | TokenKind::QuestionMark
+                | TokenKind::Label => Ok(ParserState::UncompressedProof),
+                TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
+                _ => Err(FailedParserState::Statement),
+            },
+            ParserState::CompressedProofLabelList => match token.kind() {
+                TokenKind::CommentStart => Ok(ParserState::Comment),
+                TokenKind::ProofLabelListEnd => Ok(ParserState::CompressedProofChunks),
+                TokenKind::CompressedChunkLabelCompatible | TokenKind::Label => {
+                    Ok(ParserState::CompressedProofLabelList)
+                }
+                TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
+                TokenKind::ItemEnd => Err(FailedParserState::EndStatement),
+                _ => Err(FailedParserState::Statement),
+            },
+            ParserState::CompressedProofChunks => match token.kind() {
+                TokenKind::CommentStart => Ok(ParserState::Comment),
+                TokenKind::ItemEnd => stmt_return,
+                TokenKind::QuestionMark
+                | TokenKind::CompressedChunkLabelCompatible
+                | TokenKind::CompressedChunkLabelIncompatible => {
+                    Ok(ParserState::CompressedProofChunks)
+                }
+                TokenKind::ScopeEnd => Err(FailedParserState::ScopeEnd),
+                _ => Err(FailedParserState::Statement),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -174,6 +394,9 @@ enum InitializeStatementError<'source> {
     DuplicateConstantDeclaration(Vec<Token<'source>>),
 }
 
+// TODO:
+// Some statements would be quite helped if their tokens were split along
+// `Result<ParserState, FailedParserState>` transitions.
 impl<'source> StatementKind {
     /// Verify data and construct a `Statement`.
     fn finalize(
